@@ -218,3 +218,21 @@ def get_dashboard_metrics(team=None):
         "proyectos": proyectos,
         "responsables": responsables
     }
+
+def get_task_by_gid(gid_tarea):
+    """Obtiene una tarea por su identificador único (gid_tarea)."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM tareas WHERE gid_tarea = ?", (gid_tarea,))
+    row = cursor.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+def get_all_teams():
+    """Obtiene todos los equipos únicos de la base de datos local."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT DISTINCT equipo FROM tareas WHERE equipo IS NOT NULL AND equipo != ''")
+    teams = [row[0] for row in cursor.fetchall() if row[0]]
+    conn.close()
+    return sorted(teams)

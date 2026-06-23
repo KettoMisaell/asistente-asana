@@ -70,5 +70,32 @@ class TestAIDBUpdates(unittest.TestCase):
         )
         self.assertEqual(resultado_2_n2, esperado_2_n2)
 
+    def test_get_task_by_gid_none(self):
+        from db.queries import get_task_by_gid
+        # Probar que retorna None para una tarea inexistente
+        self.assertIsNone(get_task_by_gid("nonexistent_gid_12345"))
+
+    def test_generar_insight_tarea_simulation(self):
+        from ai.engine import generar_insight_tarea
+        # Probar la simulación o el retorno de insight de tarea bajo un mock dictionary
+        mock_task = {
+            "gid_tarea": "123",
+            "nombre_tarea": "EE Compilar reportes",
+            "proyecto_origen": "Estrategia",
+            "equipo": "Dirección",
+            "asignado": "Misael",
+            "atrasada": 1,
+            "fecha_vencimiento": "2026-06-20",
+            "avance": "50%",
+            "dias_sin_movimiento": 8,
+            "descripcion": "Reunir la información de todos los planteles.",
+            "comentarios_texto": "Esperando aprobación del Director"
+        }
+        
+        insight = generar_insight_tarea(mock_task)
+        # Debe contener información clave de la tarea
+        self.assertIsNotNone(insight)
+        self.assertTrue("EE Compilar reportes" in insight or "DIAGNÓSTICO" in insight)
+
 if __name__ == "__main__":
     unittest.main()

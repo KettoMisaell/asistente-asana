@@ -10,10 +10,12 @@ from db.queries import (
     get_overdue_tasks,
     get_inactive_tasks,
     get_strategic_tasks,
-    search_tasks_by_term
+    search_tasks_by_term,
+    get_task_by_gid,
+    get_all_teams
 )
 from etl.asana_extractor import run_etl
-from ai.engine import ejecutar_consulta_chat, generar_reporte_semanal
+from ai.engine import ejecutar_consulta_chat, generar_reporte_semanal, generar_insight_tarea
 
 load_dotenv()
 
@@ -97,6 +99,20 @@ def api_report(team: str = Query(None, description="Filtrar reporte estratégico
     """Genera el reporte ejecutivo semanal proactivo de tareas EE."""
     reporte = generar_reporte_semanal(team)
     return {"reporte": reporte}
+
+@app.get("/api/tasks/{gid}/insight")
+def api_task_insight(gid: str):
+    """Genera un análisis ejecutivo proactivo (insight) para una sola tarea estratégica."""
+    tarea = get_task_by_gid(gid)
+    if not tarea:
+        raise HTTPException(status_code=404, detail="Tarea estratégica no encontrada en la base de datos local.")
+    insight = generar_insight_tarea(tarea)
+    return {"insight": insight}
+
+@app.get("/api/teams")
+def api_teams():
+    """Retorna la lista de equipos reales existentes en la base de datos."""
+    return get_all_teams()
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))

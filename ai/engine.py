@@ -203,6 +203,21 @@ def ejecutar_consulta_chat(mensaje_usuario: str, equipo_contexto: str = None) ->
     system_instruction = (
         "Eres un Asistente Ejecutivo de Inteligencia para la Dirección de la organización.\n"
         "Tu única fuente de verdad es la base de datos local de Asana, a la que tienes acceso estricto a través de tus herramientas (funciones de Python).\n\n"
+        "ESQUEMA DE DATOS DISPONIBLE EN CADA TAREA DEVUELTA POR TUS HERRAMIENTAS:\n"
+        "Cada tarea devuelta contiene los siguientes campos:\n"
+        "- `nombre_tarea`: El nombre o título del entregable (ej: 'EE Desarrollo de módulos').\n"
+        "- `descripcion`: Detalles explicativos o alcance del entregable.\n"
+        "- `completada`: Estado binario (0 = Pendiente, 1 = Completada).\n"
+        "- `fecha_vencimiento`: Fecha límite (formato YYYY-MM-DD).\n"
+        "- `asignado`: El nombre del responsable directo.\n"
+        "- `equipo`: El área/equipo al que pertenece (ej: 'Operaciones', 'Dirección', 'Soporte').\n"
+        "- `proyecto_origen`: El proyecto en Asana.\n"
+        "- `etapa`: Etapa o estatus del flujo (ej: 'Crítica', 'En proceso').\n"
+        "- `avance`: Porcentaje de avance (ej: '50%'). Puedes usarlo para medir progreso.\n"
+        "- `dias_sin_movimiento`: Número de días que lleva inactiva (sin comentarios ni modificaciones).\n"
+        "- `atrasada`: Estado de retraso (0 = En plazo, 1 = Vencida).\n"
+        "- `comentarios_texto`: Historial de comentarios de seguimiento acumulados.\n"
+        "- `ultima_actualizacion`: Fecha y hora de la última modificación en Asana.\n\n"
         f"CONTEXTO TEMPORAL ACTUAL:\n"
         f"La fecha de hoy en el servidor es: {fecha_formateada}.\n"
         f"La hora actual es: {hora_formateada}.\n"
@@ -213,10 +228,12 @@ def ejecutar_consulta_chat(mensaje_usuario: str, equipo_contexto: str = None) ->
         "Cuando llames a funciones que acepten el parámetro 'equipo', usa este valor por defecto para afinar la búsqueda, a menos que el usuario indique buscar globalmente o en otro equipo en su pregunta.\n"
         "3. Formula las llamadas a funciones de manera inteligente. Si el usuario pregunta por 'escuelas de IEBEM', llama a `buscar_tareas(termino='IEBEM')` o `buscar_tareas(termino='escuelas')`.\n"
         "4. Si la consulta no arroja resultados, puedes intentar ampliar la búsqueda buscando un sinónimo o término más corto relevante, o informar de forma transparente que no se encontraron coincidencias en el caché local de Asana.\n"
-        "5. Redacta tus respuestas con un tono sumamente ejecutivo, profesional, directo y al grano. El Director no tiene tiempo de leer relleno. Usa Markdown (negritas, viñetas).\n"
-        "6. Identifica proactivamente riesgos (ej. tareas vencidas o con muchos días sin movimiento) y bloqueos evidentes basándote en la fecha de vencimiento y el último comentario registrado.\n"
-        "7. NUNCA inventes tareas, nombres de personas, fechas o comentarios que no existan en los resultados devueltos por tus herramientas.\n"
-        "8. IMPORTANTE: No expongas identificadores técnicos como el GID de Asana en tus respuestas bajo ningún motivo, ya que son confusos para la Dirección. Refiérete a las tareas únicamente por su Nombre o Título."
+        "5. **MÉTODOS PARA MEDIR EL PROGRESO / AVANCE**: Si el usuario pregunta por 'progreso', 'avance' o 'estatus' de un equipo, persona o proyecto, debes obtener primero la lista de tareas de ese contexto llamando a tus herramientas (ej: `obtener_tareas_estrategicas(equipo)` o `buscar_tareas(termino)`), analizar los campos `completada`, `avance`, `dias_sin_movimiento` y `comentarios_texto` de los resultados devueltos, y con esa información estructurada, redactar un consolidado inteligente indicando cuántas tareas hay, cuántas completadas, porcentaje promedio de avance, inactividad y riesgos observados.\n"
+        "6. **BÚSQUEDAS DE EQUIPOS / PROYECTOS**: Ten en cuenta que la base de datos utiliza coincidencias parciales e insensibles a acentos y mayúsculas. Si el jefe pregunta por 'Predecible', 'IEBEM' o 'Soporte', pasa ese término tal cual a tus funciones de búsqueda. Siempre prefiere buscar por términos clave más cortos si crees que la ortografía del jefe no coincide exactamente.\n"
+        "7. Redacta tus respuestas con un tono sumamente ejecutivo, profesional, directo y al grano. El Director no tiene tiempo de leer relleno. Usa Markdown (negritas, viñetas).\n"
+        "8. Identifica proactivamente riesgos (ej. tareas vencidas o con muchos días sin movimiento) y bloqueos evidentes basándose en la fecha de vencimiento y el último comentario registrado.\n"
+        "9. NUNCA inventes tareas, nombres de personas, fechas o comentarios que no existan en los resultados devueltos por tus herramientas.\n"
+        "10. IMPORTANTE: No expongas identificadores técnicos como el GID de Asana en tus respuestas bajo ningún motivo, ya que son confusos para la Dirección. Refiérete a las tareas únicamente por su Nombre o Título."
     )
 
     try:
@@ -345,5 +362,65 @@ def generar_reporte_semanal(equipo_contexto: str = None) -> str:
         response = model.generate_content(prompt)
         return response.text
     except Exception as e:
-        print(f"Error en el motor de IA (Reporte): {str(e)}")
+        print(f"Error en motor de IA (Reporte): {str(e)}")
         return f"❌ **Error al generar el reporte semanal con Gemini:** {str(e)}"
+
+def generar_insight_tarea(t: dict) -> str:
+    """
+    Genera un análisis proactivo en formato markdown para una sola tarea estratégica (EE).
+    Evalúa la descripción, infiere bloqueos de los comentarios y prescribe una acción directa
+    para el Titular (el jefe).
+    """
+    if not is_ai_configured:
+        return (
+            "### 👤 ANÁLISIS ESTRATÉGICO DE LA TAREA\n\n"
+            f"**[Modo Simulación]** Configura la API key para obtener un análisis real de Gemini.\n\n"
+            f"**Tarea:** {t['nombre_tarea']}\n"
+            f"**Responsable:** {t['asignado'] or 'Sin Asignar'}\n"
+            f"**Estado:** {'Vencida' if t['atrasada'] else 'En Plazo'}\n"
+            f"**Días Inactiva:** {t['dias_sin_movimiento']} días."
+        )
+
+    desc = t['descripcion'] or 'No especificada'
+    ultimos_comentarios = obtener_ultimos_comentarios(t['comentarios_texto'], n=3)
+
+    prompt = (
+        "Actúa como un Asesor Ejecutivo de Estrategia y Control de Proyectos para el Director General (Titular de la Dependencia).\n"
+        "Debes analizar la siguiente tarea estratégica (EE) y redactar un reporte analítico sumamente directo y procesable para el Jefe.\n\n"
+        f"DATOS DE LA TAREA:\n"
+        f"- Nombre de la Tarea: {t['nombre_tarea']}\n"
+        f"- Proyecto Origen: {t['proyecto_origen']}\n"
+        f"- Equipo: {t['equipo']}\n"
+        f"- Responsable Asignado: {t['asignado'] or 'Sin Asignar'}\n"
+        f"- Estado de Entrega: {'Vencida (Atrasada)' if t['atrasada'] else 'En Plazo'}\n"
+        f"- Fecha de Vencimiento: {t['fecha_vencimiento'] or 'No especificada'}\n"
+        f"- Porcentaje de Avance declarado: {t['avance'] or '0.0%'}\n"
+        f"- Días Sin Movimiento: {t['dias_sin_movimiento']} días\n"
+        f"- Descripción Registrada: {desc}\n"
+        f"- Últimos Comentarios de Seguimiento:\n{ultimos_comentarios}\n\n"
+        "REGLAS E INSTRUCCIONES PARA EL ANÁLISIS:\n"
+        "1. Estructura tu respuesta exactamente con estas 3 secciones usando los siguientes títulos de markdown:\n\n"
+        "### 📋 DIAGNÓSTICO DEL ALCANCE Y CONEXIÓN\n"
+        "- Resume brevemente de qué trata esta tarea basándote en la descripción.\n"
+        "- Si la descripción es nula, vacía o extremadamente corta (menos de 30 caracteres), advierte críticamente: '⚠️ ADVERTENCIA: La descripción de esta tarea es inexistente o sumamente pobre. Esto indica falta de claridad en el entregable, riesgo de desalineación del equipo y falta de rigor técnico.'\n"
+        "- Explica brevemente cómo se conecta esta tarea con el proyecto general basándote en el contexto.\n\n"
+        "### 🔍 INFERENCIA DE BLOQUEOS Y CUELLOS DE BOTELLA\n"
+        "- Analiza los últimos comentarios de seguimiento y los días sin movimiento.\n"
+        "- Deduce de forma inteligente y realista cuál podría ser el bloqueo o causa de retraso (ej. dependencia de otra área, falta de presupuesto, espera de aprobación, o inactividad injustificada).\n"
+        "- IMPORTANTE: Si la tarea no tiene comentarios de seguimiento recientes o está vacía, no inventes bloqueos falsos. Indica estrictamente: '⚠️ ALERTA DE SEGUIMIENTO: La tarea no cuenta con comentarios recientes en Asana. Hay un vacío de información, lo que sugiere que el responsable no está registrando avances de forma consistente.'\n\n"
+        "### ⚡ ACCIÓN RECOMENDADA PARA EL TITULAR (USTED)\n"
+        "- Como Jefe de la Dependencia, prescribe una acción ejecutiva directa e inmediata para desbloquear o acelerar esta tarea.\n"
+        "- Sé sumamente asertivo e indica a quién debe contactar y qué pedirle exactamente de forma ejecutiva (ej. 'Exigir al responsable X una fecha compromiso para la entrega de Y, o convocar a reunión urgente con el equipo Z').\n\n"
+        "REGLAS GENERALES:\n"
+        "- Sé directo, conciso y con un lenguaje de alto nivel gerencial.\n"
+        "- No uses introducciones como 'Aquí tienes el análisis...' ni saludos redundantes. Empieza directamente con los títulos de markdown indicados.\n"
+        "- No alucines datos que no se puedan deducir de los campos provistos."
+    )
+
+    try:
+        model = genai.GenerativeModel(model_name=MODEL_NAME)
+        response = model.generate_content(prompt)
+        return response.text
+    except Exception as e:
+        print(f"Error en generar_insight_tarea: {str(e)}")
+        return f"❌ **Error al generar el análisis de la tarea estratégica:** {str(e)}"

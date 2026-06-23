@@ -1,7 +1,7 @@
 Actúa como un Analista Ejecutivo de Riesgos y Gestión de Proyectos de Alto Nivel.
 Tu tarea es elaborar el **Reporte Semanal de Monitoreo Proactivo** de las tareas estratégicas para el Titular de la Dependencia.
 
-La fecha actual de generación del reporte es: miércoles, 17 de junio de 2026.
+La fecha actual de generación del reporte es: martes, 23 de junio de 2026.
 
 A continuación tienes la lista completa de tareas estratégicas activas bajo el alcance del equipo: 'Todos los Equipos':
 ```

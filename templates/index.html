@@ -10,22 +10,22 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         :root {
-            --bg-primary: #f4f6f9;
-            --bg-surface: #ffffff;
-            --bg-sidebar: #1e293b;
-            --text-primary: #0f172a;
-            --text-muted: #64748b;
-            --text-on-sidebar: #f8fafc;
-            --color-accent: #3b82f6;
-            --color-accent-hover: #2563eb;
-            --color-danger: #ef4444;
-            --color-warning: #f59e0b;
-            --color-success: #10b981;
-            --color-strategic: #8b5cf6;
-            --border-radius: 12px;
-            --shadow-sm: 0 1px 3px rgba(0,0,0,0.1);
-            --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
-            --transition: all 0.2s ease-in-out;
+            --bg-primary: #f8fafc;       /* Light, clean slate grey */
+            --bg-surface: #ffffff;       /* Pure white */
+            --bg-sidebar: #0f172a;       /* Deep slate navy - very premium */
+            --text-primary: #1e293b;     /* Deep charcoal */
+            --text-muted: #64748b;       /* Cool slate grey */
+            --text-on-sidebar: #f1f5f9;  /* Cool light grey */
+            --color-accent: #1e40af;     /* Executive royal blue */
+            --color-accent-hover: #1e3a8a; /* Darker royal blue */
+            --color-danger: #b91c1c;     /* Refined dark red */
+            --color-warning: #d97706;    /* Warm amber */
+            --color-success: #047857;    /* Emerald green */
+            --color-strategic: #6d28d9;  /* Refined violet */
+            --border-radius: 8px;        /* Slightly sharper, modern corners */
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+            --transition: all 0.15s ease-in-out;
         }
 
         * {
@@ -55,13 +55,14 @@
         }
 
         .sidebar-brand {
-            font-size: 1.25rem;
+            font-size: 1.2rem;
             font-weight: 700;
             margin-bottom: 32px;
             display: flex;
             align-items: center;
             gap: 10px;
             color: var(--text-on-sidebar);
+            letter-spacing: 0.05em;
         }
 
         .sidebar-brand span {
@@ -581,6 +582,84 @@
             font-size: 0.85rem;
         }
 
+        /* --- PANEL DE INSIGHTS LATERAL (OFF-CANVAS) --- */
+        .insight-panel {
+            position: fixed;
+            top: 0;
+            right: -420px;
+            width: 420px;
+            height: 100%;
+            background-color: var(--bg-surface);
+            box-shadow: -4px 0 15px rgba(0,0,0,0.15);
+            transition: right 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            border-left: 1px solid #cbd5e1;
+        }
+
+        .insight-panel.active {
+            right: 0;
+        }
+
+        .insight-panel-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #f8fafc;
+        }
+
+        .insight-panel-header h3 {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: var(--bg-sidebar);
+        }
+
+        .insight-panel-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            font-weight: 700;
+            cursor: pointer;
+            color: var(--text-muted);
+            transition: var(--transition);
+        }
+
+        .insight-panel-close:hover {
+            color: var(--text-primary);
+        }
+
+        .insight-panel-body {
+            flex-grow: 1;
+            padding: 20px;
+            overflow-y: auto;
+            font-size: 0.9rem;
+            line-height: 1.6;
+        }
+
+        /* Estilos de Markdown para el Panel de Insights */
+        .insight-panel-body h3 {
+            margin-top: 20px;
+            margin-bottom: 8px;
+            font-size: 0.95rem;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 4px;
+            color: var(--bg-sidebar);
+            font-weight: 700;
+        }
+        .insight-panel-body h3:first-of-type {
+            margin-top: 0;
+        }
+        .insight-panel-body ul {
+            margin-left: 16px;
+            margin-bottom: 12px;
+        }
+        .insight-panel-body li {
+            margin-bottom: 6px;
+        }
+
         @keyframes slideDown {
             from { transform: translateY(-30px); opacity: 0; }
             to { transform: translateY(0); opacity: 1; }
@@ -592,18 +671,14 @@
     <!-- SIDEBAR -->
     <div class="sidebar">
         <div class="sidebar-brand">
-            🚀 <span>Asana</span>Intel
+            <span>Asana</span> Intel
         </div>
 
         <div class="control-group">
             <label class="control-label">Filtro de Equipo</label>
             <select class="select-input" id="teamFilter">
                 <option value="">-- Todos los Equipos --</option>
-                <!-- Se poblarán dinámicamente o mantienen nombres -->
-                <option value="Dirección">Dirección</option>
-                <option value="Operaciones">Operaciones</option>
-                <option value="Desarrollo">Desarrollo</option>
-                <option value="Soporte">Soporte</option>
+                <!-- Se poblará dinámicamente -->
             </select>
         </div>
 
@@ -632,70 +707,94 @@
 
         <!-- CONTENT -->
         <div class="content">
-            <!-- METRICS CARD GRID -->
+            <!-- METRICS CARD GRID (EE-FIRST) -->
             <div class="metrics-grid">
-                <div class="kpi-card pendientes">
-                    <span class="kpi-title">Pendientes</span>
-                    <span class="kpi-value" id="valPendientes">-</span>
-                </div>
-                <div class="kpi-card atrasadas">
-                    <span class="kpi-title">Atrasadas / Vencidas</span>
-                    <span class="kpi-value" id="valAtrasadas">-</span>
-                </div>
-                <div class="kpi-card sin-movimiento">
-                    <span class="kpi-title">Inactivas (>7d)</span>
-                    <span class="kpi-value" id="valInactivas">-</span>
-                </div>
                 <div class="kpi-card estrategicas">
-                    <span class="kpi-title">Estratégicas (EE)</span>
+                    <span class="kpi-title">EEs Activos Totales</span>
                     <span class="kpi-value" id="valEstrategicas">-</span>
                 </div>
-                <div class="kpi-card completadas">
-                    <span class="kpi-title">Completadas Totales</span>
-                    <span class="kpi-value" id="valCompletadas">-</span>
+                <div class="kpi-card atrasadas">
+                    <span class="kpi-title">EEs Vencidos / Críticos</span>
+                    <span class="kpi-value" id="valEstrategicasAtrasadas">-</span>
+                </div>
+                <div class="kpi-card sin-movimiento">
+                    <span class="kpi-title">EEs Desatendidos (>7d)</span>
+                    <span class="kpi-value" id="valEstrategicasInactivas">-</span>
+                </div>
+                <!-- SALUD GENERAL DE LA OPERACIÓN (Compacto) -->
+                <div class="kpi-card salud-general" style="grid-column: span 2; border-left-color: var(--color-accent); flex-direction: row; justify-content: space-between; align-items: center; padding: 15px 20px;">
+                    <div style="flex-grow: 1;">
+                        <span class="kpi-title" style="margin-bottom: 2px;">Salud General de la Operación</span>
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px 12px; margin-top: 4px; font-size: 0.8rem; color: var(--text-muted);">
+                            <div>Pendientes: <strong id="valPendientes" style="color: var(--text-primary); font-size: 0.85rem;">-</strong></div>
+                            <div>Atrasadas: <strong id="valAtrasadas" style="color: var(--color-danger); font-size: 0.85rem;">-</strong></div>
+                            <div>Inactivas: <strong id="valInactivas" style="color: var(--color-warning); font-size: 0.85rem;">-</strong></div>
+                            <div>Completadas: <strong id="valCompletadas" style="color: var(--color-success); font-size: 0.85rem;">-</strong></div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- CHARTS GRID -->
+            <!-- PANEL DE CONTROL DE ENTREGABLES ESTRATÉGICOS (MÁXIMA PRIORIDAD EN MEDIO) -->
+            <div class="table-card" style="min-height: 380px; display: flex; flex-direction: column; padding: 20px; border: 1px solid #e2e8f0; border-radius: var(--border-radius); box-shadow: var(--shadow-sm);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">
+                    <h2 style="font-size: 1.1rem; font-weight: 700; color: var(--bg-sidebar);">
+                        Centro de Control de Entregables Estratégicos (EE)
+                    </h2>
+                    <span style="font-size: 0.8rem; color: var(--text-muted);">Haga clic en cualquier entregable para obtener un análisis ejecutivo de IA</span>
+                </div>
+                
+                <div class="ee-grid" id="eeGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin-bottom: 8px; flex-grow: 1; overflow-y: auto; max-height: 340px; padding-right: 4px;">
+                    <div style="grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 40px;">Cargando entregables estratégicos...</div>
+                </div>
+            </div>
+
+            <!-- CHARTS GRID (ABAJO DE ENTREGABLES) -->
             <div class="charts-grid">
-                <div class="chart-card">
-                    <span class="chart-title">Top Proyectos con Tareas Pendientes</span>
+                <div class="chart-card" style="height: 230px; border: 1px solid #e2e8f0; border-radius: var(--border-radius); box-shadow: var(--shadow-sm); padding: 16px;">
+                    <span class="chart-title" style="font-size: 0.9rem; font-weight: 700; margin-bottom: 10px;">Distribución de EEs por Equipo</span>
                     <div class="chart-wrapper">
                         <canvas id="projectsChart"></canvas>
                     </div>
                 </div>
-                <div class="chart-card">
-                    <span class="chart-title">Carga de Pendientes por Responsable</span>
+                <div class="chart-card" style="height: 230px; border: 1px solid #e2e8f0; border-radius: var(--border-radius); box-shadow: var(--shadow-sm); padding: 16px;">
+                    <span class="chart-title" style="font-size: 0.9rem; font-weight: 700; margin-bottom: 10px;">Carga de EEs por Responsable</span>
                     <div class="chart-wrapper">
                         <canvas id="responsiblesChart"></canvas>
                     </div>
                 </div>
             </div>
 
-            <!-- TABLE DETAILS -->
-            <div class="table-card">
-                <div class="tabs-header">
-                    <button class="tab-btn active" id="tabAtrasadas" onclick="switchTab('atrasadas')">Tareas Atrasadas</button>
-                    <button class="tab-btn" id="tabInactivas" onclick="switchTab('inactivas')">Inactivas (>7d)</button>
-                    <button class="tab-btn" id="tabEstrategicas" onclick="switchTab('estrategicas')">Estratégicas (EE)</button>
-                </div>
-                <div class="table-wrapper">
-                    <table id="detailsTable">
-                        <thead>
-                            <tr id="tableHeader">
-                                <th>Tarea</th>
-                                <th>Proyecto</th>
-                                <th>Responsable</th>
-                                <th>Avance / Etapa</th>
-                                <th>Último Movimiento / Comentario</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tableBody">
-                            <tr>
-                                <td colspan="5" style="text-align: center; color: var(--text-muted);">Cargando detalles...</td>
-                            </tr>
-                        </tbody>
-                    </table>
+            <!-- SECCIÓN COLAPSABLE DE DETALLES GENERALES (AL FINAL) -->
+            <div class="table-card" style="padding: 16px; border-radius: var(--border-radius); box-shadow: var(--shadow-sm); border: 1px solid #e2e8f0;">
+                <button class="btn-toggle-table" onclick="toggleDetailsTable()" id="toggleTableBtn" style="background-color: #f1f5f9; border: 1px solid #cbd5e1; color: var(--text-primary); padding: 10px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; transition: var(--transition); display: flex; align-items: center; gap: 8px; width: auto; font-size: 0.85rem;">
+                    🔍 <span>Mostrar Detalle de Todas las Tareas del Equipo</span>
+                </button>
+                
+                <div id="detailsTableContainer" style="display: none; margin-top: 16px; animation: slideDown 0.25s ease;">
+                    <div class="tabs-header" style="margin-top: 10px;">
+                        <button class="tab-btn active" id="tabAtrasadas" onclick="switchTab('atrasadas')">Tareas Atrasadas</button>
+                        <button class="tab-btn" id="tabInactivas" onclick="switchTab('inactivas')">Inactivas (>7d)</button>
+                        <button class="tab-btn" id="tabEstrategicas" onclick="switchTab('estrategicas')">Estratégicas (EE)</button>
+                    </div>
+                    <div class="table-wrapper">
+                        <table id="detailsTable">
+                            <thead>
+                                <tr id="tableHeader">
+                                    <th>Tarea</th>
+                                    <th>Proyecto</th>
+                                    <th>Equipo</th>
+                                    <th>Responsable</th>
+                                    <th>Último Movimiento / Comentario</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tableBody">
+                                <tr>
+                                    <td colspan="5" style="text-align: center; color: var(--text-muted);">Cargando detalles...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
@@ -738,6 +837,17 @@
         </div>
     </div>
 
+    <!-- AI TASK INSIGHT PANEL (OFF-CANVAS SIDE PANEL) -->
+    <div id="insightPanel" class="insight-panel">
+        <div class="insight-panel-header">
+            <h3 id="insightPanelTitle">Análisis del Entregable</h3>
+            <button class="insight-panel-close" onclick="closeInsightPanel()">&times;</button>
+        </div>
+        <div id="insightPanelBody" class="insight-panel-body">
+            <!-- Se poblará dinámicamente con spinner y luego contenido de la IA -->
+        </div>
+    </div>
+
     <script>
         let currentTab = 'atrasadas';
         let projectsChart = null;
@@ -749,12 +859,38 @@
             loadDashboardData();
         });
 
-        window.addEventListener('DOMContentLoaded', () => {
+        window.addEventListener('DOMContentLoaded', async () => {
+            // Cargar los equipos reales en el select
+            await loadTeamsDropdown();
             loadDashboardData();
         });
 
+        async function loadTeamsDropdown() {
+            try {
+                const res = await fetch('/api/teams');
+                const teams = await res.json();
+                const select = document.getElementById('teamFilter');
+                
+                const selectedVal = select.value;
+                select.innerHTML = '<option value="">-- Todos los Equipos --</option>';
+                
+                teams.forEach(t => {
+                    const opt = document.createElement('option');
+                    opt.value = t;
+                    opt.innerText = t;
+                    select.appendChild(opt);
+                });
+                
+                select.value = selectedVal;
+            } catch (err) {
+                console.error("Error al cargar equipos de la base de datos:", err);
+            }
+        }
+
         async function loadDashboardData() {
             const team = teamFilterElement.value;
+            
+            // 1. Cargar Métricas y Salud General de la Operación
             let queryUrl = `/api/metrics`;
             if (team) {
                 queryUrl += `?team=${encodeURIComponent(team)}`;
@@ -764,26 +900,144 @@
                 const res = await fetch(queryUrl);
                 const data = await res.json();
 
+                // Poblar Salud General de la Operación
                 document.getElementById('valPendientes').innerText = data.pendientes;
                 document.getElementById('valAtrasadas').innerText = data.atrasadas;
                 document.getElementById('valInactivas').innerText = data.sin_movimiento_7d;
-                document.getElementById('valEstrategicas').innerText = data.estrategicas_ee;
                 document.getElementById('valCompletadas').innerText = data.completadas;
-
-                renderProjectsChart(data.proyectos);
-                renderResponsiblesChart(data.responsables);
-                loadTableData();
+                
+                // 2. Cargar Entregables Estratégicos (EE)
+                await loadStrategicData(team);
+                
+                // 3. Cargar la Tabla Colapsable General
+                if (document.getElementById('detailsTableContainer').style.display !== 'none') {
+                    loadTableData();
+                }
 
             } catch (err) {
                 console.error("Error cargando métricas:", err);
             }
         }
 
-        function renderProjectsChart(proyectos) {
-            const ctx = document.getElementById('projectsChart').getContext('2d');
-            const labels = proyectos.map(p => p.proyecto_origen || 'Sin Proyecto');
-            const counts = proyectos.map(p => p.pendientes_count);
+        async function loadStrategicData(team) {
+            let strategicUrl = `/api/tasks/strategic`;
+            if (team) {
+                strategicUrl += `?team=${encodeURIComponent(team)}`;
+            }
 
+            try {
+                const res = await fetch(strategicUrl);
+                const tasks = await res.json();
+
+                // Filtrar solo las tareas activas para la vista de entregables (EE)
+                const activeEes = tasks.filter(t => !t.completada);
+                
+                // Calcular KPIs de EEs
+                const totalEes = activeEes.length;
+                const overdueEes = activeEes.filter(t => t.atrasada).length;
+                const inactiveEes = activeEes.filter(t => t.dias_sin_movimiento >= 7).length;
+
+                // Actualizar tarjetas de KPI superiores
+                document.getElementById('valEstrategicas').innerText = totalEes;
+                document.getElementById('valEstrategicasAtrasadas').innerText = overdueEes;
+                document.getElementById('valEstrategicasInactivas').innerText = inactiveEes;
+
+                // Cargar grid de entregables
+                loadStrategicGrid(activeEes);
+
+                // Renderizar gráficos con la distribución de EEs
+                renderEEsByTeamChart(activeEes);
+                renderEEsByResponsibleChart(activeEes);
+
+            } catch (err) {
+                console.error("Error al cargar entregables estratégicos:", err);
+            }
+        }
+
+        function loadStrategicGrid(tasks) {
+            const grid = document.getElementById('eeGrid');
+            grid.innerHTML = '';
+            
+            if (tasks.length === 0) {
+                grid.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 40px; font-size: 0.85rem;">No se encontraron entregables estratégicos activos para este equipo.</div>`;
+                return;
+            }
+
+            tasks.forEach(t => {
+                const card = document.createElement('div');
+                card.className = 'ee-card';
+                
+                // Color de borde dinámico según la prioridad del estado
+                let borderColor = 'var(--color-success)';
+                let statusBadgeClass = 'success';
+                let statusBadgeText = 'En Plazo';
+
+                if (t.atrasada) {
+                    borderColor = 'var(--color-danger)';
+                    statusBadgeClass = 'danger';
+                    statusBadgeText = 'Vencida';
+                } else if (t.dias_sin_movimiento >= 7) {
+                    borderColor = 'var(--color-warning)';
+                    statusBadgeClass = 'warning';
+                    statusBadgeText = 'Inactiva';
+                }
+
+                card.style.borderLeft = `4px solid ${borderColor}`;
+                card.style.padding = '14px';
+                card.style.backgroundColor = 'var(--bg-surface)';
+                card.style.border = '1px solid #e2e8f0';
+                card.style.borderLeft = `4px solid ${borderColor}`;
+                card.style.borderRadius = '6px';
+                card.style.cursor = 'pointer';
+                card.style.transition = 'var(--transition)';
+                card.style.display = 'flex';
+                card.style.flexDirection = 'column';
+                card.style.gap = '10px';
+                card.style.boxShadow = 'var(--shadow-sm)';
+
+                card.onmouseover = () => {
+                    card.style.transform = 'translateY(-2px)';
+                    card.style.boxShadow = 'var(--shadow-md)';
+                    card.style.borderColor = '#cbd5e1';
+                };
+                card.onmouseout = () => {
+                    card.style.transform = 'translateY(0)';
+                    card.style.boxShadow = 'var(--shadow-sm)';
+                    card.style.borderColor = '#e2e8f0';
+                };
+
+                card.onclick = () => openInsightPanel(t.gid_tarea, t.nombre_tarea);
+
+                card.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-size: 0.7rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">${t.equipo || 'Sin Equipo'}</span>
+                        <span class="badge ${statusBadgeClass}" style="font-size:0.65rem; padding: 2px 6px;">${statusBadgeText}</span>
+                    </div>
+                    <h4 style="font-size: 0.85rem; font-weight: 700; color: var(--text-primary); margin: 0; line-height: 1.35; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;" title="${t.nombre_tarea}">
+                        ${t.nombre_tarea}
+                    </h4>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); border-top: 1px solid #f1f5f9; padding-top: 8px; margin-top: auto; display: flex; justify-content: space-between; align-items: center;">
+                        <span>Responsable: <strong style="color: var(--text-primary); font-weight: 600;">${t.asignado || 'Sin Asignar'}</strong></span>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function renderEEsByTeamChart(activeEes) {
+            // Agrupar activeEes por equipo (máximo 4 equipos principales)
+            const teamCounts = {};
+            activeEes.forEach(t => {
+                const eq = t.equipo || 'Sin Equipo';
+                teamCounts[eq] = (teamCounts[eq] || 0) + 1;
+            });
+
+            // Ordenar de mayor a menor y tomar los top 4 equipos
+            const sortedTeams = Object.keys(teamCounts).sort((a,b) => teamCounts[b] - teamCounts[a]).slice(0, 4);
+            const labels = sortedTeams;
+            const counts = sortedTeams.map(team => teamCounts[team]);
+
+            const ctx = document.getElementById('projectsChart').getContext('2d');
             if (projectsChart) {
                 projectsChart.destroy();
             }
@@ -793,10 +1047,11 @@
                 data: {
                     labels: labels,
                     datasets: [{
-                        label: 'Tareas Pendientes',
+                        label: 'Entregables Estratégicos',
                         data: counts,
-                        backgroundColor: '#3b82f6',
-                        borderRadius: 6
+                        backgroundColor: '#1e40af', // Executive royal blue
+                        borderRadius: 4,
+                        barThickness: 20
                     }]
                 },
                 options: {
@@ -804,18 +1059,26 @@
                     maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
                     scales: {
-                        y: { beginAtZero: true, ticks: { precision: 0 } },
-                        x: { ticks: { maxRotation: 45, minRotation: 45, font: { size: 9 } } }
+                        y: { beginAtZero: true, ticks: { precision: 0, font: { size: 9 } } },
+                        x: { ticks: { font: { size: 9, weight: '600' } } }
                     }
                 }
             });
         }
 
-        function renderResponsiblesChart(responsables) {
-            const ctx = document.getElementById('responsiblesChart').getContext('2d');
-            const labels = responsables.map(r => r.asignado || 'Sin Asignar');
-            const counts = responsables.map(r => r.pendientes_count);
+        function renderEEsByResponsibleChart(activeEes) {
+            // Agrupar activeEes por responsable (Top 5 responsables con más EEs)
+            const respCounts = {};
+            activeEes.forEach(t => {
+                const resp = t.asignado || 'Sin Asignar';
+                respCounts[resp] = (respCounts[resp] || 0) + 1;
+            });
 
+            const sortedResps = Object.keys(respCounts).sort((a,b) => respCounts[b] - respCounts[a]).slice(0, 5);
+            const labels = sortedResps;
+            const counts = sortedResps.map(r => respCounts[r]);
+
+            const ctx = document.getElementById('responsiblesChart').getContext('2d');
             if (responsiblesChart) {
                 responsiblesChart.destroy();
             }
@@ -827,8 +1090,7 @@
                     datasets: [{
                         data: counts,
                         backgroundColor: [
-                            '#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6',
-                            '#ec4899', '#14b8a6', '#f43f5e', '#06b6d4', '#64748b'
+                            '#1e40af', '#047857', '#d97706', '#6d28d9', '#b91c1c'
                         ]
                     }]
                 },
@@ -836,10 +1098,67 @@
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
-                        legend: { position: 'right', labels: { boxWidth: 12, font: { size: 10 } } }
+                        legend: { 
+                            position: 'right', 
+                            labels: { 
+                                boxWidth: 10, 
+                                font: { size: 9, weight: '500' },
+                                padding: 8
+                            } 
+                        }
                     }
                 }
             });
+        }
+
+        function toggleDetailsTable() {
+            const container = document.getElementById('detailsTableContainer');
+            const btn = document.getElementById('toggleTableBtn');
+            const isHidden = container.style.display === 'none';
+            
+            container.style.display = isHidden ? 'block' : 'none';
+            btn.querySelector('span').innerText = isHidden ? 'Ocultar Detalle de Todas las Tareas' : 'Mostrar Detalle de Todas las Tareas del Equipo';
+            
+            if (isHidden) {
+                loadTableData();
+                container.scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+
+        async function openInsightPanel(gid, taskName) {
+            const panel = document.getElementById('insightPanel');
+            const title = document.getElementById('insightPanelTitle');
+            const body = document.getElementById('insightPanelBody');
+            
+            title.innerText = taskName;
+            panel.classList.add('active');
+            
+            // Colocar un loading spinner profesional
+            body.innerHTML = `
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 200px; gap: 16px; color: var(--text-muted);">
+                    <div class="spinner" style="border-top-color: var(--color-accent); width: 32px; height: 32px; border-width: 4px;"></div>
+                    <span style="font-size: 0.85rem; font-weight: 500;">Iniciando diagnóstico estratégico...</span>
+                </div>
+            `;
+            
+            try {
+                const res = await fetch(`/api/tasks/${gid}/insight`);
+                if (!res.ok) throw new Error("No se pudo obtener el análisis del servidor");
+                const data = await res.json();
+                body.innerHTML = parseMarkdownToHTML(data.insight);
+            } catch (err) {
+                console.error("Error al obtener insight:", err);
+                body.innerHTML = `
+                    <div style="color: var(--color-danger); padding: 20px; text-align: center; font-size: 0.85rem;">
+                        ❌ No se pudo cargar el análisis ejecutivo para este entregable.<br>
+                        <span style="font-size:0.75rem; color:var(--text-muted);">${err.message}</span>
+                    </div>
+                `;
+            }
+        }
+
+        function closeInsightPanel() {
+            document.getElementById('insightPanel').classList.remove('active');
         }
 
         async function loadTableData() {
@@ -895,8 +1214,8 @@
                             ${t.nombre_tarea.includes('EE') ? '<span class="badge purple" style="padding:2px 6px; font-size:0.65rem; margin-left:4px;">Estratégico</span>' : ''}
                         </td>
                         <td>${t.proyecto_origen || 'General'}</td>
+                        <td>${t.equipo || '<em style="color:var(--text-muted);">Sin Equipo</em>'}</td>
                         <td>${t.asignado || '<em style="color:var(--text-muted);">Sin Asignar</em>'}</td>
-                        <td>${progressEtapa}</td>
                         <td>
                             ${movementInfo}<br>
                             ${lastCommentText}
@@ -1205,8 +1524,8 @@
                             ${t.nombre_tarea.includes('EE') ? '<span class="badge purple" style="padding:2px 6px; font-size:0.65rem; margin-left:4px;">Estratégico</span>' : ''}
                         </td>
                         <td>${t.proyecto_origen || 'General'}</td>
+                        <td>${t.equipo || '<em style="color:var(--text-muted);">Sin Equipo</em>'}</td>
                         <td>${t.asignado || '<em style="color:var(--text-muted);">Sin Asignar</em>'}</td>
-                        <td>${progressEtapa}</td>
                         <td>
                             ${movementInfo}<br>
                             ${lastCommentText}
