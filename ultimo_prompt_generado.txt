@@ -1,0 +1,219 @@
+Actúa como un Analista Ejecutivo de Riesgos y Gestión de Proyectos de Alto Nivel.
+Tu tarea es elaborar el **Reporte Semanal de Monitoreo Proactivo** de las tareas estratégicas para el Titular de la Dependencia.
+
+La fecha actual de generación del reporte es: miércoles, 17 de junio de 2026.
+
+A continuación tienes la lista completa de tareas estratégicas activas bajo el alcance del equipo: 'Todos los Equipos':
+```
+Tarea 1:
+  - Nombre: EE CIRCULAR 07/2026 Elaboración de oficio para envío a cada dependencia
+  - Proyecto: Implementación "La Tierra Que Nos Une" en Oficinas GEM
+  - Equipo: Acceso a internet
+  - Asignado: César Cayetano Hipólito Hernández
+  - Estado: Pendiente en Plazo
+  - Fecha Inicio: 2026-06-15
+  - Fecha Vencimiento: 2026-06-19
+  - Avance: 0.50
+  - Etapa: Proceso
+  - Días Sin Movimiento: 21
+  - Descripción: Elaboración y envío de oficio para las dependencias que no cuentan con la Red La tierra que nos UNE donde se indiquen las atribuciones de la agencia sobre ciberseguridad y que se requiere instalar firewall y la red La tierra que nos une
+https://docs.google.com/document/d/1N6-2iMBor_nKnHCsFh89ZQ77aHYGhvQx/edit?usp=sharing&ouid=111421356605427412591&rtpof=true&sd=true
+  - Últimos Comentarios:
+[Guillermo Velázquez Bahena] (2026-05-26T17:03:08.733Z): https://app.asana.com/1/20533188343472/profile/1208551735266963 si se tendría mesas de trabajo con las URSI para su diagnostico.
+https://app.asana.com/1/20533188343472/profile/1210812391014601 de mi parte lo veo bien.
+---
+[Anayeli Medina] (2026-05-26T17:05:54.524Z): https://app.asana.com/1/20533188343472/profile/1208551735266963, https://app.asana.com/1/20533188343472/profile/1208873282570398 me confirman si ya se sube a firma así https://docs.google.com/document/d/1N6-2iMBor_nKnHCsFh89ZQ77aHYGhvQx/edit?usp=sharing&ouid=111421356605427412591&rtpof=true&sd=true
+
+Tarea 2:
+  - Nombre: EE Solicitar al IEBEM listado de escuelas que recogen equipo
+  - Proyecto: Instalación Equipos Cómputo en 42 Escuelas
+  - Equipo: Acceso a internet
+  - Asignado: Gabriel Flores
+  - Estado: Pendiente en Plazo
+  - Fecha Inicio: 2026-06-08
+  - Fecha Vencimiento: 2026-06-19
+  - Avance: 0.00
+  - Etapa: No especificada
+  - Días Sin Movimiento: 8
+  - Descripción: No especificada
+  - Últimos Comentarios:
+[José Alberto Morales] (2026-06-01T21:34:07.192Z): A cual listado te refieres? Derivado de la reunión que tuvimos con IEBEM, se acordó que todas los equipos se recogerán en el IEBEM por parte de los Directores. En este momento están en la etapa de revisión de números de series de los equipos, y nos informarán en cuanto los tengan completos.
+---
+[Gabriel Flores] (2026-06-08T18:16:20.531Z): Nos encontramos en espera de que IEBEM termine el inventario y pueda tener las computadoras listas para la entrega a directores de escuelas, comentan que estará a mas tardar para el 12 de junio.
+
+Tarea 3:
+  - Nombre: EE Coordinar la entrega de equipos de cómputo con los Promotores
+  - Proyecto: Instalación Equipos Cómputo en 42 Escuelas
+  - Equipo: Acceso a internet
+  - Asignado: José Alberto Morales
+  - Estado: Pendiente en Plazo
+  - Fecha Inicio: 2026-06-15
+  - Fecha Vencimiento: 2026-07-06
+  - Avance: 0.00
+  - Etapa: No especificada
+  - Días Sin Movimiento: 14
+  - Descripción: Se requiere coordinar la entrega de los equipos de cómputo a las escuelas faltantes.
+  - Últimos Comentarios:
+[Francisco Javier Hernández] (2026-06-02T21:34:31.438Z): Derivado de la reunión que se tuvo con IEBEM, se acordó que todos los equipos se recogerán en el IEBEM por parte de los Directores. Están en la etapa de revisión de números de serie de los equipos, y nos informarán en cuanto los tengan completos.
+
+Tarea 4:
+  - Nombre: EE Revisar con los promotores lo faltante en cada escuela para bajar recursos con "Petate de Colores" de Bienestar
+  - Proyecto: Instalación Equipos Cómputo en 42 Escuelas
+  - Equipo: Acceso a internet
+  - Asignado: Gabriel Flores
+  - Estado: Pendiente en Plazo
+  - Fecha Inicio: No especificada
+  - Fecha Vencimiento: 2026-06-19
+  - Avance: 0.00
+  - Etapa: No especificada
+  - Días Sin Movimiento: 5
+  - Descripción: En las escuelas faltantes hay requerimientos y pueden aplicar a $50,000 pesos del programa "Petate de Colores"
+
+Listado de faltantes:
+https://docs.google.com/presentation/d/12C__eg8SGy1JG1zUsCYfsno6ve3sTcj8oMspavmqdLI/edit?slide=id.g3e8c0fe1e37_0_258#slide=id.g3e8c0fe1e37_0_258
+
+Cada promotor debe inscribir su proyecto de cada escuela y llenar los siguientes formatos.
+La fecha límite es el jueves ...
+  - Últimos Comentarios:
+[Guillermo Velázquez Bahena] (2026-06-12T01:09:16.962Z): Adjunto GUIA elaborada con IA con ayuda sobre el programa basandonos en los formatos y las reglas del programa.
+
+Tarea 5:
+  - Nombre: EE Seguimiento con Telmex al listado de sitios públicos
+  - Proyecto: Instalar en 22 puntos acceso a internet en sitios públicos
+  - Equipo: Acceso a internet
+  - Asignado: José Alberto Morales
+  - Estado: Pendiente en Plazo
+  - Fecha Inicio: 2026-06-15
+  - Fecha Vencimiento: 2026-06-19
+  - Avance: 0.00
+  - Etapa: Análisis
+  - Días Sin Movimiento: -1
+  - Descripción: Dar seguimiento con Telmex del listado enviado de sitios públicos.
+
+Se les dio un listado de Museos, parques raíces plazas públicas de los TPBV y lo van a evaluar, adicionalmente nos van a enviar un listado de sitios donde ya tienen internet infinitum.
+  - Últimos Comentarios:
+[Guillermo Velázquez Bahena] (2026-06-11T16:31:59.516Z): Se envió correo a Telmex con la solicitud de envío de sitios públicos donde ya cuentan con internet de infinitum. Estamos a la espera de la respuesta y van a evaluar la lista que les dimos nosotros
+---
+[Francisco Javier Hernández] (2026-06-17T15:42:36.435Z): Telmex sigue en revisión del listado de los sitios públicos para su autorización.
+
+Tarea 6:
+  - Nombre: EE Seguimiento con ATDT al listado del Programa de Conectividad en Sitios Públicos y Áreas de Atención Prioritaria
+  - Proyecto: Instalar en 22 puntos acceso a internet en sitios públicos
+  - Equipo: Acceso a internet
+  - Asignado: Francisco Javier Hernández
+  - Estado: Pendiente en Plazo
+  - Fecha Inicio: 2026-06-08
+  - Fecha Vencimiento: 2026-06-19
+  - Avance: 0.0%
+  - Etapa: No especificada
+  - Días Sin Movimiento: -1
+  - Descripción: Es necesario dar seguimiento con ATDT al listado del Programa de Conectividad en Sitios Públicos y Áreas de Atención Prioritaria.
+  - Últimos Comentarios:
+[Francisco Javier Hernández] (2026-06-17T15:45:07.426Z): En espera de respuesta de ATDT. Se envió el listado de los sitios y los iban a revisar.
+
+Tarea 7:
+  - Nombre: EE Analizar tecnología para envío de encuesta de satisfacción a usuarios.
+  - Proyecto: Aumentar índice de satisfacción del 0 al 80% entre los usuarios de LRLTQNU
+  - Equipo: Acceso a internet
+  - Asignado: Evelyn Berenice Santamaria Nuñez
+  - Estado: Pendiente en Plazo
+  - Fecha Inicio: 2026-06-08
+  - Fecha Vencimiento: 2026-06-30
+  - Avance: 0.50
+  - Etapa: Proceso
+  - Días Sin Movimiento: 18
+  - Descripción: No especificada
+  - Últimos Comentarios:
+[Francisco Javier Hernández] (2026-05-29T15:41:20.249Z): https://app.asana.com/1/20533188343472/profile/1209498256298313 para solicitar de tu apoyo por favor y conocer si ya se tiene definido por qué método se estaría enviando la encuesta de satisfacción. Gracias.
+---
+[Evelyn Berenice Santamaria Nuñez] (2026-05-29T15:45:23.511Z): Hola equipo!
+Conceptualizamos que el producto de encuestas sea un servicio. Sin embargo para su fase inicial solo se considerará la creación de encuestas para validar los productos relacionados trámites y servicios. para una próxima fase los esfuerzos de enfocarían en construir un API para que quien necesite usar el producto pueda consumirlo e implementarlo.
+CC: https://app.asana.com/1/20533188343472/profile/1208691796906405
+
+Tarea 8:
+  - Nombre: EE Desarrollo de la solución para envío de encuesta de satisfacción.
+  - Proyecto: Aumentar índice de satisfacción del 0 al 80% entre los usuarios de LRLTQNU
+  - Equipo: Acceso a internet
+  - Asignado: José Alberto Morales
+  - Estado: Pendiente en Plazo
+  - Fecha Inicio: 2026-07-01
+  - Fecha Vencimiento: 2026-07-31
+  - Avance: 0.00
+  - Etapa: Sin actividad
+  - Días Sin Movimiento: 5
+  - Descripción: No especificada
+  - Últimos Comentarios:
+Ninguno
+
+Tarea 9:
+  - Nombre: EE Analizar las causas de vencimiento cuyas tareas cumplen con este requisito y clasificarlas
+  - Proyecto: Aumentar la previsibilidad en la ejecución de los proyectos estratégicos de la Agencia
+  - Equipo: Trabajo predecible
+  - Asignado: Misael Rodriguez Arias
+  - Estado: Pendiente en Plazo
+  - Fecha Inicio: No especificada
+  - Fecha Vencimiento: No especificada
+  - Avance: 0.0%
+  - Etapa: No especificada
+  - Días Sin Movimiento: 32
+  - Descripción: Diseñar una clasificación y con NLP asignar cada tarea vencida (con razones de vencimiento) a una de las clasificaciones
+  - Últimos Comentarios:
+[Misael Rodriguez Arias] (2026-05-15T20:44:10.547Z): Prueba
+
+Tarea 10:
+  - Nombre: EE Enviar listado a Telmex con puntos estratégicos de acceso a internet en sitios públicos
+  - Proyecto: Instalar en 22 puntos acceso a internet en sitios públicos
+  - Equipo: Acceso a internet
+  - Asignado: José Alberto Morales
+  - Estado: Pendiente en Plazo
+  - Fecha Inicio: 2026-06-01
+  - Fecha Vencimiento: 2026-06-05
+  - Avance: 0.20
+  - Etapa: Proceso
+  - Días Sin Movimiento: 8
+  - Descripción: Telmex comentó en una reunión que podría sumar esfuerzos con el Gobierno del estado de Morelos y solicitó que se le proporcionara una lista con puntos de interés de lugares públicos para que Telmex evaluara la factibilidad técnica de poder colocar el servicio de internet gratuito en dichos lugares.
+  - Últimos Comentarios:
+[José Alberto Morales] (2026-05-29T17:36:13.029Z): Si, solo estoy en espera de las ubicaciones de los Parques Raíces, para complementarlo, los Museos que se acordaron ya están agregados al documento
+---
+[Gabriel Flores] (2026-06-08T16:44:35.872Z): Ya se entrego el listado completo a Telmex, estamos en espera de revisión por parte de ellos.   
+
+Nos comentaron que podríamos empezar con Parque Chapultepec ya que tienen infraestructura y ese punto ya esta autorizado para habilitarlo
+
+Tarea 11:
+  - Nombre: EE Agendar reunión con Telmex para sitios públicos
+  - Proyecto: Instalar en 22 puntos acceso a internet en sitios públicos
+  - Equipo: Acceso a internet
+  - Asignado: José Alberto Morales
+  - Estado: Pendiente en Plazo
+  - Fecha Inicio: 2026-06-01
+  - Fecha Vencimiento: 2026-06-05
+  - Avance: 0.20
+  - Etapa: Terminado
+  - Días Sin Movimiento: 14
+  - Descripción: No especificada
+  - Últimos Comentarios:
+[Guillermo Velázquez Bahena] (2026-06-02T21:16:31.697Z): La reunión está programada para el día Jueves 4 de Junio
+
+```
+
+INSTRUCCIONES DE REDACCIÓN:
+1. Tu reporte debe ser extremadamente analítico, directo y libre de formalidades redundantes o introducciones largas, además lee el campo de descripción de la tarea para poder entender mejor las implicaciones de la tarea.
+2. Estructura el reporte exactamente en las siguientes secciones ejecutivas usando Markdown profesional:
+
+### 🚨 ALERTAS CRÍTICAS Y TAREAS VENCIDAS
+- Identifica las tareas estratégicas que están vencidas (atrasadas) o con inactividad extrema (>14 días). Lista un punto por tarea detallando el responsable, los días de retraso e implicación inmediata.
+
+### 📈 AVANCES Y ESTADO DE TAREAS ESTRATÉGICAS (ACTIVAS Y RECIENTES)
+- Detalla de forma ejecutiva el estado y avances de todas las tareas estratégicas activas (incluso las que están en tiempo) y aquellas completadas recientemente.
+- **Regla de Oro sobre Descripciones:** Apaláncate a fondo de la 'Descripción' de cada tarea para inferir su alcance, avance real e implicación del entregable con total precisión. Si una tarea estratégica tiene descripción 'No especificada', señálalo explícitamente como un riesgo de alineación, falta de claridad técnica o riesgo de ejecución.
+- Analiza con cuidado el contenido de los 'Últimos Comentarios' para diagnosticar hitos alcanzados, progreso real, o bloqueos técnicos (ej. si están esperando aprobación o respuesta de un tercero).
+
+### 👤 ACCIONES Y PERSONAS CLAVE A CONTACTAR
+- Genera una tabla de acción inmediata con las columnas: | Responsable | Tarea Crítica | Acción Recomendada / Qué Solicitar | para que el Director sepa exactamente con quién hablar y qué fecha compromiso solicitar para destrabar el avance. Recuerda no incluir campos técnicos ni GIDs.
+
+### 💡 RECOMENDACIONES EJECUTIVAS
+- Conclusiones breves o recomendaciones a nivel directivo sobre la salud general de este frente estratégico.
+
+REGLAS DE OBLIGATORIO CUMPLIMIENTO:
+- NUNCA expongas identificadores internos (como GIDs, hashes o números técnicos de tarea) en el reporte final para el Director General. Mantén el texto limpio y de alto nivel.
+- No alucines ni inventes tareas, personas, comentarios ni datos. Basas todo tu análisis rigurosamente en la lista provista arriba.

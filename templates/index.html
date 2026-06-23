@@ -1,0 +1,1143 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asistente Ejecutivo Asana</title>
+    <!-- Chart.js para gráficos elegantes -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-primary: #f4f6f9;
+            --bg-surface: #ffffff;
+            --bg-sidebar: #1e293b;
+            --text-primary: #0f172a;
+            --text-muted: #64748b;
+            --text-on-sidebar: #f8fafc;
+            --color-accent: #3b82f6;
+            --color-accent-hover: #2563eb;
+            --color-danger: #ef4444;
+            --color-warning: #f59e0b;
+            --color-success: #10b981;
+            --color-strategic: #8b5cf6;
+            --border-radius: 12px;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.1);
+            --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+            --transition: all 0.2s ease-in-out;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* --- SIDEBAR IZQUIERDO --- */
+        .sidebar {
+            width: 260px;
+            background-color: var(--bg-sidebar);
+            color: var(--text-on-sidebar);
+            display: flex;
+            flex-direction: column;
+            padding: 24px 16px;
+            flex-shrink: 0;
+        }
+
+        .sidebar-brand {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 32px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--text-on-sidebar);
+        }
+
+        .sidebar-brand span {
+            color: var(--color-accent);
+        }
+
+        .control-group {
+            margin-bottom: 24px;
+        }
+
+        .control-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .select-input {
+            width: 100%;
+            padding: 10px 12px;
+            background-color: #334155;
+            border: 1px solid #475569;
+            border-radius: 8px;
+            color: var(--text-on-sidebar);
+            font-size: 0.9rem;
+            outline: none;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .select-input:focus {
+            border-color: var(--color-accent);
+        }
+
+        .btn-sidebar {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .btn-sync {
+            background-color: var(--color-accent);
+            color: white;
+        }
+
+        .btn-sync:hover {
+            background-color: var(--color-accent-hover);
+        }
+
+        .btn-report {
+            background-color: var(--color-strategic);
+            color: white;
+            margin-top: 8px;
+        }
+
+        .btn-report:hover {
+            opacity: 0.9;
+        }
+
+        .sidebar-footer {
+            margin-top: auto;
+        }
+
+        /* --- CONTENEDOR PRINCIPAL --- */
+        .main-container {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .header {
+            background-color: var(--bg-surface);
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #e2e8f0;
+            height: 70px;
+        }
+
+        .header-title h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .header-title p {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .search-container {
+            width: 300px;
+            position: relative;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            outline: none;
+            transition: var(--transition);
+        }
+
+        .search-input:focus {
+            border-color: var(--color-accent);
+        }
+
+        /* --- CONTENIDO --- */
+        .content {
+            flex-grow: 1;
+            padding: 24px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        /* --- CARDS DE MÉTRICAS (KPIs) --- */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 16px;
+        }
+
+        .kpi-card {
+            background-color: var(--bg-surface);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-sm);
+            border-left: 4px solid var(--color-accent);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .kpi-card.pendientes { border-left-color: var(--color-accent); }
+        .kpi-card.atrasadas { border-left-color: var(--color-danger); }
+        .kpi-card.sin-movimiento { border-left-color: var(--color-warning); }
+        .kpi-card.estrategicas { border-left-color: var(--color-strategic); }
+        .kpi-card.completadas { border-left-color: var(--color-success); }
+
+        .kpi-title {
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+
+        .kpi-value {
+            font-size: 1.75rem;
+            font-weight: 700;
+        }
+
+        /* --- SECCIÓN DE GRÁFICOS --- */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+
+        .chart-card {
+            background-color: var(--bg-surface);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-sm);
+            height: 300px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chart-title {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+
+        .chart-wrapper {
+            flex-grow: 1;
+            position: relative;
+        }
+
+        /* --- TABLA DE DETALLES --- */
+        .table-card {
+            background-color: var(--bg-surface);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-sm);
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 350px;
+        }
+
+        .tabs-header {
+            display: flex;
+            border-bottom: 2px solid #e2e8f0;
+            margin-bottom: 16px;
+            gap: 16px;
+        }
+
+        .tab-btn {
+            padding: 10px 16px;
+            background: none;
+            border: none;
+            border-bottom: 2px solid transparent;
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: var(--transition);
+            margin-bottom: -2px;
+        }
+
+        .tab-btn.active {
+            color: var(--color-accent);
+            border-bottom-color: var(--color-accent);
+        }
+
+        .table-wrapper {
+            flex-grow: 1;
+            overflow-y: auto;
+            max-height: 250px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f8fafc;
+            padding: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+            border-bottom: 1px solid #e2e8f0;
+            position: sticky;
+            top: 0;
+        }
+
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #f1f5f9;
+            vertical-align: top;
+        }
+
+        tr:hover {
+            background-color: #f8fafc;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .badge.danger { background-color: #fee2e2; color: #ef4444; }
+        .badge.warning { background-color: #fef3c7; color: #d97706; }
+        .badge.success { background-color: #d1fae5; color: #059669; }
+        .badge.purple { background-color: #f3e8ff; color: #7c3aed; }
+
+        /* --- BOT CHAT DERECHO --- */
+        .chat-container {
+            width: 340px;
+            background-color: var(--bg-surface);
+            border-left: 1px solid #e2e8f0;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+        }
+
+        .chat-header {
+            padding: 20px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .chat-header h2 {
+            font-size: 1.1rem;
+            font-weight: 700;
+        }
+
+        .chat-header p {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .chat-messages {
+            flex-grow: 1;
+            padding: 16px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .chat-bubble {
+            max-width: 85%;
+            padding: 10px 14px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            line-height: 1.4;
+        }
+
+        .chat-bubble.bot {
+            background-color: #f1f5f9;
+            color: var(--text-primary);
+            align-self: flex-start;
+            border-bottom-left-radius: 2px;
+        }
+
+        .chat-bubble.user {
+            background-color: var(--color-accent);
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 2px;
+        }
+
+        .chat-input-area {
+            padding: 16px;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            gap: 8px;
+        }
+
+        .chat-input {
+            flex-grow: 1;
+            padding: 10px 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            outline: none;
+            resize: none;
+            height: 40px;
+        }
+
+        .chat-input:focus {
+            border-color: var(--color-accent);
+        }
+
+        .btn-send {
+            background-color: var(--color-accent);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 0 16px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .btn-send:hover {
+            background-color: var(--color-accent-hover);
+        }
+
+        /* Loading Spinner */
+        .spinner {
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top: 3px solid white;
+            width: 16px;
+            height: 16px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* --- MODAL PARA REPORTE --- */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 999;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.5);
+            backdrop-filter: blur(4px);
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background-color: var(--bg-surface);
+            padding: 28px;
+            border-radius: var(--border-radius);
+            width: 75%;
+            max-width: 850px;
+            height: 80%;
+            display: flex;
+            flex-direction: column;
+            box-shadow: var(--shadow-md);
+            animation: slideDown 0.3s ease;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 16px;
+            margin-bottom: 16px;
+        }
+
+        .modal-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            font-weight: 700;
+            cursor: pointer;
+            color: var(--text-muted);
+            transition: var(--transition);
+        }
+
+        .modal-close:hover {
+            color: var(--text-primary);
+        }
+
+        .modal-body {
+            flex-grow: 1;
+            overflow-y: auto;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            padding-right: 8px;
+        }
+
+        /* Estilos Markdown dentro del reporte modal */
+        .report-html h3 {
+            margin-top: 24px;
+            margin-bottom: 12px;
+            font-size: 1.1rem;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 4px;
+            color: var(--bg-sidebar);
+        }
+        .report-html h3:first-of-type {
+            margin-top: 0;
+        }
+        .report-html ul {
+            margin-left: 20px;
+            margin-bottom: 16px;
+        }
+        .report-html li {
+            margin-bottom: 8px;
+        }
+        .report-html table {
+            margin: 16px 0;
+            border: 1px solid #cbd5e1;
+        }
+        .report-html th {
+            background-color: #f1f5f9;
+            color: var(--text-primary);
+        }
+        .report-html td, .report-html th {
+            padding: 8px 12px;
+            border: 1px solid #cbd5e1;
+            font-size: 0.85rem;
+        }
+
+        @keyframes slideDown {
+            from { transform: translateY(-30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+        <div class="sidebar-brand">
+            🚀 <span>Asana</span>Intel
+        </div>
+
+        <div class="control-group">
+            <label class="control-label">Filtro de Equipo</label>
+            <select class="select-input" id="teamFilter">
+                <option value="">-- Todos los Equipos --</option>
+                <!-- Se poblarán dinámicamente o mantienen nombres -->
+                <option value="Dirección">Dirección</option>
+                <option value="Operaciones">Operaciones</option>
+                <option value="Desarrollo">Desarrollo</option>
+                <option value="Soporte">Soporte</option>
+            </select>
+        </div>
+
+        <div class="sidebar-footer">
+            <button class="btn-sidebar btn-sync" id="syncBtn" onclick="triggerSync()">
+                <span>Sincronizar Asana</span>
+            </button>
+            <button class="btn-sidebar btn-report" id="reportBtn" onclick="generateReport()">
+                <span>Reporte Proactivo IA</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- MAIN CONTAINER -->
+    <div class="main-container">
+        <!-- HEADER -->
+        <div class="header">
+            <div class="header-title">
+                <h1>Dashboard de Control Ejecutivo</h1>
+                <p>Análisis de estado real de la organización basado en Asana</p>
+            </div>
+            <div class="search-container">
+                <input type="text" class="search-input" id="searchBar" placeholder="Buscar tareas..." onkeyup="handleSearch(event)">
+            </div>
+        </div>
+
+        <!-- CONTENT -->
+        <div class="content">
+            <!-- METRICS CARD GRID -->
+            <div class="metrics-grid">
+                <div class="kpi-card pendientes">
+                    <span class="kpi-title">Pendientes</span>
+                    <span class="kpi-value" id="valPendientes">-</span>
+                </div>
+                <div class="kpi-card atrasadas">
+                    <span class="kpi-title">Atrasadas / Vencidas</span>
+                    <span class="kpi-value" id="valAtrasadas">-</span>
+                </div>
+                <div class="kpi-card sin-movimiento">
+                    <span class="kpi-title">Inactivas (>7d)</span>
+                    <span class="kpi-value" id="valInactivas">-</span>
+                </div>
+                <div class="kpi-card estrategicas">
+                    <span class="kpi-title">Estratégicas (EE)</span>
+                    <span class="kpi-value" id="valEstrategicas">-</span>
+                </div>
+                <div class="kpi-card completadas">
+                    <span class="kpi-title">Completadas Totales</span>
+                    <span class="kpi-value" id="valCompletadas">-</span>
+                </div>
+            </div>
+
+            <!-- CHARTS GRID -->
+            <div class="charts-grid">
+                <div class="chart-card">
+                    <span class="chart-title">Top Proyectos con Tareas Pendientes</span>
+                    <div class="chart-wrapper">
+                        <canvas id="projectsChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <span class="chart-title">Carga de Pendientes por Responsable</span>
+                    <div class="chart-wrapper">
+                        <canvas id="responsiblesChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TABLE DETAILS -->
+            <div class="table-card">
+                <div class="tabs-header">
+                    <button class="tab-btn active" id="tabAtrasadas" onclick="switchTab('atrasadas')">Tareas Atrasadas</button>
+                    <button class="tab-btn" id="tabInactivas" onclick="switchTab('inactivas')">Inactivas (>7d)</button>
+                    <button class="tab-btn" id="tabEstrategicas" onclick="switchTab('estrategicas')">Estratégicas (EE)</button>
+                </div>
+                <div class="table-wrapper">
+                    <table id="detailsTable">
+                        <thead>
+                            <tr id="tableHeader">
+                                <th>Tarea</th>
+                                <th>Proyecto</th>
+                                <th>Responsable</th>
+                                <th>Avance / Etapa</th>
+                                <th>Último Movimiento / Comentario</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody">
+                            <tr>
+                                <td colspan="5" style="text-align: center; color: var(--text-muted);">Cargando detalles...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- EXECUTIVE CHAT SIDEBAR -->
+    <div class="chat-container">
+        <div class="chat-header">
+            <div>
+                <h2>Asistente Inteligente</h2>
+                <p>Capa de consulta ejecutiva con IA</p>
+            </div>
+        </div>
+        <div class="chat-messages" id="chatMessages">
+            <div class="chat-bubble bot">
+                Hola Director. Estoy listo para ayudarte. Pregúntame sobre cualquier tarea, proyecto o responsable (ej: *"¿Qué pasó con el listado de escuelas de IEBEM?"* o *"¿Qué tiene asignado César?"*). 
+                <br><br>
+                Tengo acceso directo a consultas en tiempo real sobre la base de datos de Asana para responder de forma precisa.
+            </div>
+        </div>
+        <div class="chat-input-area">
+            <input type="text" class="chat-input" id="chatInput" placeholder="Pregunta sobre una tarea..." onkeydown="handleChatKey(event)">
+            <button class="btn-send" id="chatSendBtn" onclick="sendChatMessage()">Enviar</button>
+        </div>
+    </div>
+
+    <!-- REPORT MODAL -->
+    <div class="modal" id="reportModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-title" id="reportModalTitle">Reporte Semanal de Monitoreo Proactivo</span>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body report-html" id="reportModalBody">
+                <!-- Se poblará con HTML -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentTab = 'atrasadas';
+        let projectsChart = null;
+        let responsiblesChart = null;
+
+        const teamFilterElement = document.getElementById('teamFilter');
+
+        teamFilterElement.addEventListener('change', () => {
+            loadDashboardData();
+        });
+
+        window.addEventListener('DOMContentLoaded', () => {
+            loadDashboardData();
+        });
+
+        async function loadDashboardData() {
+            const team = teamFilterElement.value;
+            let queryUrl = `/api/metrics`;
+            if (team) {
+                queryUrl += `?team=${encodeURIComponent(team)}`;
+            }
+
+            try {
+                const res = await fetch(queryUrl);
+                const data = await res.json();
+
+                document.getElementById('valPendientes').innerText = data.pendientes;
+                document.getElementById('valAtrasadas').innerText = data.atrasadas;
+                document.getElementById('valInactivas').innerText = data.sin_movimiento_7d;
+                document.getElementById('valEstrategicas').innerText = data.estrategicas_ee;
+                document.getElementById('valCompletadas').innerText = data.completadas;
+
+                renderProjectsChart(data.proyectos);
+                renderResponsiblesChart(data.responsables);
+                loadTableData();
+
+            } catch (err) {
+                console.error("Error cargando métricas:", err);
+            }
+        }
+
+        function renderProjectsChart(proyectos) {
+            const ctx = document.getElementById('projectsChart').getContext('2d');
+            const labels = proyectos.map(p => p.proyecto_origen || 'Sin Proyecto');
+            const counts = proyectos.map(p => p.pendientes_count);
+
+            if (projectsChart) {
+                projectsChart.destroy();
+            }
+
+            projectsChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Tareas Pendientes',
+                        data: counts,
+                        backgroundColor: '#3b82f6',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { precision: 0 } },
+                        x: { ticks: { maxRotation: 45, minRotation: 45, font: { size: 9 } } }
+                    }
+                }
+            });
+        }
+
+        function renderResponsiblesChart(responsables) {
+            const ctx = document.getElementById('responsiblesChart').getContext('2d');
+            const labels = responsables.map(r => r.asignado || 'Sin Asignar');
+            const counts = responsables.map(r => r.pendientes_count);
+
+            if (responsiblesChart) {
+                responsiblesChart.destroy();
+            }
+
+            responsiblesChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: counts,
+                        backgroundColor: [
+                            '#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6',
+                            '#ec4899', '#14b8a6', '#f43f5e', '#06b6d4', '#64748b'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'right', labels: { boxWidth: 12, font: { size: 10 } } }
+                    }
+                }
+            });
+        }
+
+        async function loadTableData() {
+            const team = teamFilterElement.value;
+            let url = `/api/tasks/overdue`;
+            if (currentTab === 'inactivas') {
+                url = `/api/tasks/inactive?days=7`;
+            } else if (currentTab === 'estrategicas') {
+                url = `/api/tasks/strategic`;
+            }
+
+            if (team) {
+                url += (url.includes('?') ? '&' : '?') + `team=${encodeURIComponent(team)}`;
+            }
+
+            try {
+                const res = await fetch(url);
+                const tasks = await res.json();
+                const tbody = document.getElementById('tableBody');
+                tbody.innerHTML = '';
+
+                if (tasks.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">No se encontraron tareas en esta sección</td></tr>`;
+                    return;
+                }
+
+                tasks.forEach(t => {
+                    const tr = document.createElement('tr');
+                    
+                    let progressEtapa = `<span class="badge warning">${t.etapa || 'Sin Etapa'}</span>`;
+                    if (t.avance) {
+                        progressEtapa += `<br><span style="font-size: 0.8rem; font-weight: bold; color: var(--color-accent);">${t.avance} de Avance</span>`;
+                    }
+
+                    let lastCommentText = `<em style="color: var(--text-muted); font-size: 0.8rem;">Sin comentarios recientes</em>`;
+                    if (t.comentarios_texto) {
+                        const splitted = t.comentarios_texto.split('\n');
+                        lastCommentText = `<div style="font-size:0.8rem; max-width: 300px; max-height:60px; overflow:hidden; text-overflow:ellipsis;" title="${t.comentarios_texto}">
+                            <strong>Último:</strong> ${splitted[splitted.length - 1]}
+                        </div>`;
+                    }
+                    
+                    let movementInfo = `<span style="font-size: 0.8rem; color: var(--text-muted);">Movimiento: ${t.dias_sin_movimiento} días inactivo</span>`;
+                    if (t.dias_sin_movimiento >= 14) {
+                        movementInfo = `<span class="badge danger" style="padding: 2px 6px; font-size:0.7rem;">Grave: ${t.dias_sin_movimiento} días inactivo</span>`;
+                    } else if (t.dias_sin_movimiento >= 7) {
+                        movementInfo = `<span class="badge warning" style="padding: 2px 6px; font-size:0.7rem;">Inactivo: ${t.dias_sin_movimiento} días</span>`;
+                    }
+
+                    tr.innerHTML = `
+                        <td style="font-weight: 600;">
+                            ${t.nombre_tarea}
+                            ${t.nombre_tarea.includes('EE') ? '<span class="badge purple" style="padding:2px 6px; font-size:0.65rem; margin-left:4px;">Estratégico</span>' : ''}
+                        </td>
+                        <td>${t.proyecto_origen || 'General'}</td>
+                        <td>${t.asignado || '<em style="color:var(--text-muted);">Sin Asignar</em>'}</td>
+                        <td>${progressEtapa}</td>
+                        <td>
+                            ${movementInfo}<br>
+                            ${lastCommentText}
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+
+            } catch (err) {
+                console.error("Error cargando listado:", err);
+            }
+        }
+
+        function switchTab(tab) {
+            document.getElementById(`tabAtrasadas`).classList.remove('active');
+            document.getElementById(`tabInactivas`).classList.remove('active');
+            document.getElementById(`tabEstrategicas`).classList.remove('active');
+
+            currentTab = tab;
+            if (tab === 'atrasadas') document.getElementById('tabAtrasadas').classList.add('active');
+            if (tab === 'inactivas') document.getElementById('tabInactivas').classList.add('active');
+            if (tab === 'estrategicas') document.getElementById('tabEstrategicas').classList.add('active');
+
+            loadTableData();
+        }
+
+        async function triggerSync() {
+            const syncBtn = document.getElementById('syncBtn');
+            syncBtn.disabled = true;
+            syncBtn.innerHTML = `<span class="spinner"></span> <span>Sincronizando...</span>`;
+
+            try {
+                const res = await fetch('/api/sync', { method: 'POST' });
+                const data = await res.json();
+                alert("Sincronización completada con éxito desde Asana API.");
+                loadDashboardData();
+            } catch (err) {
+                console.error(err);
+                alert("Ocurrió un error al sincronizar con Asana.");
+            } finally {
+                syncBtn.disabled = false;
+                syncBtn.innerHTML = `<span>Sincronizar Asana</span>`;
+            }
+        }
+
+        async function generateReport() {
+            const reportBtn = document.getElementById('reportBtn');
+            const team = teamFilterElement.value;
+            reportBtn.disabled = true;
+            reportBtn.innerHTML = `<span class="spinner"></span> <span>Generando...</span>`;
+
+            try {
+                let url = `/api/report`;
+                if (team) {
+                    url += `?team=${encodeURIComponent(team)}`;
+                }
+                const res = await fetch(url);
+                const data = await res.json();
+
+                // Mostrar en el modal
+                document.getElementById('reportModalTitle').innerText = `Reporte de Monitoreo Proactivo - ${team || 'Todos los Equipos'}`;
+                document.getElementById('reportModalBody').innerHTML = parseMarkdownToHTML(data.reporte);
+                document.getElementById('reportModal').classList.add('active');
+
+            } catch (err) {
+                console.error(err);
+                alert("Error al generar el reporte estratégico semanal.");
+            } finally {
+                reportBtn.disabled = false;
+                reportBtn.innerHTML = `<span>Reporte Proactivo IA</span>`;
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('reportModal').classList.remove('active');
+        }
+
+        async function sendChatMessage() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            if (!message) return;
+
+            input.value = '';
+            const chatMessages = document.getElementById('chatMessages');
+            
+            const userBubble = document.createElement('div');
+            userBubble.className = 'chat-bubble user';
+            userBubble.innerText = message;
+            chatMessages.appendChild(userBubble);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            const chatSendBtn = document.getElementById('chatSendBtn');
+            chatSendBtn.disabled = true;
+            chatSendBtn.innerText = 'Pensando...';
+
+            // Agregar burbuja temporal del bot con cargando
+            const tempBotBubble = document.createElement('div');
+            tempBotBubble.className = 'chat-bubble bot';
+            tempBotBubble.innerHTML = '<em>Consultando base de datos local y redactando...</em>';
+            chatMessages.appendChild(tempBotBubble);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            const team = teamFilterElement.value;
+
+            try {
+                const res = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: message, team: team })
+                });
+                const data = await res.json();
+
+                // Quitar burbuja temporal e incorporar real
+                chatMessages.removeChild(tempBotBubble);
+
+                const botBubble = document.createElement('div');
+                botBubble.className = 'chat-bubble bot';
+                botBubble.innerHTML = parseMarkdownToHTML(data.response);
+                chatMessages.appendChild(botBubble);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            } catch (err) {
+                console.error(err);
+                chatMessages.removeChild(tempBotBubble);
+                const errBubble = document.createElement('div');
+                errBubble.className = 'chat-bubble bot';
+                errBubble.innerHTML = '❌ Ocurrió un error al procesar la respuesta.';
+                chatMessages.appendChild(errBubble);
+            } finally {
+                chatSendBtn.disabled = false;
+                chatSendBtn.innerText = 'Enviar';
+            }
+        }
+
+        function handleChatKey(event) {
+            if (event.key === 'Enter') {
+                sendChatMessage();
+            }
+        }
+
+        async function handleSearch(event) {
+            const query = event.target.value.trim();
+            if (query.length < 3) {
+                if (query.length === 0) {
+                    loadDashboardData();
+                }
+                return;
+            }
+
+            const team = teamFilterElement.value;
+            let url = `/api/tasks/search?q=${encodeURIComponent(query)}`;
+            if (team) {
+                url += `&team=${encodeURIComponent(team)}`;
+            }
+
+            try {
+                const res = await fetch(url);
+                const tasks = await res.json();
+                const tbody = document.getElementById('tableBody');
+                tbody.innerHTML = '';
+
+                if (tasks.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">No se encontraron tareas para "${query}"</td></tr>`;
+                    return;
+                }
+
+                tasks.forEach(t => {
+                    const tr = document.createElement('tr');
+                    
+                    let progressEtapa = `<span class="badge warning">${t.etapa || 'Sin Etapa'}</span>`;
+                    if (t.avance) {
+                        progressEtapa += `<br><span style="font-size: 0.8rem; font-weight: bold; color: var(--color-accent);">${t.avance} de Avance</span>`;
+                    }
+
+                    let lastCommentText = `<em style="color: var(--text-muted); font-size: 0.8rem;">Sin comentarios recientes</em>`;
+                    if (t.comentarios_texto) {
+                        const splitted = t.comentarios_texto.split('\n');
+                        lastCommentText = `<div style="font-size:0.8rem; max-width: 300px; max-height:60px; overflow:hidden; text-overflow:ellipsis;" title="${t.comentarios_texto}">
+                            <strong>Último:</strong> ${splitted[splitted.length - 1]}
+                        </div>`;
+                    }
+                    
+                    let movementInfo = `<span style="font-size: 0.8rem; color: var(--text-muted);">Movimiento: ${t.dias_sin_movimiento} días inactivo</span>`;
+                    if (t.dias_sin_movimiento >= 14) {
+                        movementInfo = `<span class="badge danger" style="padding: 2px 6px; font-size:0.7rem;">Grave: ${t.dias_sin_movimiento} días inactivo</span>`;
+                    }
+
+                    tr.innerHTML = `
+                        <td style="font-weight: 600;">
+                            ${t.nombre_tarea}
+                            ${t.nombre_tarea.includes('EE') ? '<span class="badge purple" style="padding:2px 6px; font-size:0.65rem; margin-left:4px;">Estratégico</span>' : ''}
+                        </td>
+                        <td>${t.proyecto_origen || 'General'}</td>
+                        <td>${t.asignado || '<em style="color:var(--text-muted);">Sin Asignar</em>'}</td>
+                        <td>${progressEtapa}</td>
+                        <td>
+                            ${movementInfo}<br>
+                            ${lastCommentText}
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        // Formateador completo de Markdown a HTML para soportar reportes complejos de Gemini
+        function parseMarkdownToHTML(text) {
+            if (!text) return '';
+            
+            // Reemplazar saltos de línea por <br> temporales o manejar párrafos
+            let html = text
+                // Títulos ### y ##
+                .replace(/^### (.*?)$/gm, '<h3>$1</h3>')
+                .replace(/^## (.*?)$/gm, '<h2>$1</h2>')
+                // Negritas e Itálicas
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                // Listas no ordenadas (puntos de viñeta)
+                .replace(/^\- (.*?)$/gm, '<li>$1</li>');
+
+            // Agrupar elementos <li> en <ul>
+            html = html.replace(/(<li>.*?<\/li>)/gs, '<ul>$1</ul>');
+            // Limpiar uls adyacentes duplicados generados por regex simple
+            html = html.replace(/<\/ul>\s*<ul>/g, '');
+
+            // Convertir tablas en formato Markdown a HTML
+            // Ej: | Col 1 | Col 2 |
+            const tableRegex = /\|(.+)\|/g;
+            if (html.match(tableRegex)) {
+                let lines = html.split('\n');
+                let inTable = false;
+                let tableHtml = '';
+                
+                for (let i = 0; i < lines.length; i++) {
+                    let line = lines[i].trim();
+                    if (line.startsWith('|') && line.endsWith('|')) {
+                        if (!inTable) {
+                            inTable = true;
+                            tableHtml = '<table><thead>';
+                        }
+                        
+                        let cells = line.split('|').slice(1, -1).map(c => c.trim());
+                        
+                        // Si es la línea de separación (----), ignorarla
+                        if (cells[0].startsWith('---')) {
+                            tableHtml = tableHtml.replace('<thead>', '') + '<tbody>'; // Transición al cuerpo
+                            continue;
+                        }
+                        
+                        let cellTag = tableHtml.includes('<tbody>') ? 'td' : 'th';
+                        tableHtml += '<tr>' + cells.map(c => `<${cellTag}>${c}</${cellTag}>`).join('') + '</tr>';
+                    } else {
+                        if (inTable) {
+                            inTable = false;
+                            tableHtml += '</tbody></table>';
+                            lines[i] = tableHtml + '\n' + lines[i];
+                        }
+                    }
+                }
+                html = lines.join('\n');
+            }
+
+            // Reemplazar saltos de línea por <br> fuera de etiquetas estructurales
+            html = html.replace(/\n/g, '<br>');
+            return html;
+        }
+    </script>
+</body>
+</html>
