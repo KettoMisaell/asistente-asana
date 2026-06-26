@@ -785,12 +785,13 @@
                                     <th>Proyecto</th>
                                     <th>Equipo</th>
                                     <th>Responsable</th>
+                                    <th>Estado / Completada</th>
                                     <th>Último Movimiento / Comentario</th>
                                 </tr>
                             </thead>
                             <tbody id="tableBody">
                                 <tr>
-                                    <td colspan="5" style="text-align: center; color: var(--text-muted);">Cargando detalles...</td>
+                                    <td colspan="6" style="text-align: center; color: var(--text-muted);">Cargando detalles...</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -972,7 +973,11 @@
                 let statusBadgeClass = 'success';
                 let statusBadgeText = 'En Plazo';
 
-                if (t.atrasada) {
+                if (t.completada) {
+                    borderColor = '#7c3aed'; // Color morado/púrpura para indicar completado
+                    statusBadgeClass = 'purple';
+                    statusBadgeText = 'Completado';
+                } else if (t.atrasada) {
                     borderColor = 'var(--color-danger)';
                     statusBadgeClass = 'danger';
                     statusBadgeText = 'Vencida';
@@ -1181,7 +1186,7 @@
                 tbody.innerHTML = '';
 
                 if (tasks.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">No se encontraron tareas en esta sección</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">No se encontraron tareas en esta sección</td></tr>`;
                     return;
                 }
 
@@ -1208,6 +1213,35 @@
                         movementInfo = `<span class="badge warning" style="padding: 2px 6px; font-size:0.7rem;">Inactivo: ${t.dias_sin_movimiento} días</span>`;
                     }
 
+                    // Calcular etiqueta de completado y hace cuánto tiempo
+                    let statusText = '';
+                    if (t.completada) {
+                        statusText = `<span class="badge purple">Completada</span>`;
+                        if (t.fecha_completada) {
+                            try {
+                                const completedDate = new Date(t.fecha_completada);
+                                const now = new Date();
+                                const diffTime = Math.abs(now - completedDate);
+                                const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                                if (diffDays <= 0) {
+                                    statusText += `<br><span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">Completada hoy</span>`;
+                                } else if (diffDays === 1) {
+                                    statusText += `<br><span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">Completada ayer</span>`;
+                                } else {
+                                    statusText += `<br><span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">Hace ${diffDays} días</span>`;
+                                }
+                            } catch (e) {
+                                console.error("Error al calcular diferencia de fechas:", e);
+                            }
+                        }
+                    } else {
+                        if (t.atrasada) {
+                            statusText = `<span class="badge danger">Pendiente Vencida</span>`;
+                        } else {
+                            statusText = `<span class="badge success">Pendiente en Plazo</span>`;
+                        }
+                    }
+
                     tr.innerHTML = `
                         <td style="font-weight: 600;">
                             ${t.nombre_tarea}
@@ -1216,6 +1250,7 @@
                         <td>${t.proyecto_origen || 'General'}</td>
                         <td>${t.equipo || '<em style="color:var(--text-muted);">Sin Equipo</em>'}</td>
                         <td>${t.asignado || '<em style="color:var(--text-muted);">Sin Asignar</em>'}</td>
+                        <td>${statusText}</td>
                         <td>
                             ${movementInfo}<br>
                             ${lastCommentText}
@@ -1493,7 +1528,7 @@
                 tbody.innerHTML = '';
 
                 if (tasks.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">No se encontraron tareas para "${query}"</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">No se encontraron tareas para "${query}"</td></tr>`;
                     return;
                 }
 
@@ -1518,6 +1553,35 @@
                         movementInfo = `<span class="badge danger" style="padding: 2px 6px; font-size:0.7rem;">Grave: ${t.dias_sin_movimiento} días inactivo</span>`;
                     }
 
+                    // Calcular etiqueta de completado y hace cuánto tiempo
+                    let statusText = '';
+                    if (t.completada) {
+                        statusText = `<span class="badge purple">Completada</span>`;
+                        if (t.fecha_completada) {
+                            try {
+                                const completedDate = new Date(t.fecha_completada);
+                                const now = new Date();
+                                const diffTime = Math.abs(now - completedDate);
+                                const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                                if (diffDays <= 0) {
+                                    statusText += `<br><span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">Completada hoy</span>`;
+                                } else if (diffDays === 1) {
+                                    statusText += `<br><span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">Completada ayer</span>`;
+                                } else {
+                                    statusText += `<br><span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">Hace ${diffDays} días</span>`;
+                                }
+                            } catch (e) {
+                                console.error("Error al calcular diferencia de fechas:", e);
+                            }
+                        }
+                    } else {
+                        if (t.atrasada) {
+                            statusText = `<span class="badge danger">Pendiente Vencida</span>`;
+                        } else {
+                            statusText = `<span class="badge success">Pendiente en Plazo</span>`;
+                        }
+                    }
+
                     tr.innerHTML = `
                         <td style="font-weight: 600;">
                             ${t.nombre_tarea}
@@ -1526,6 +1590,7 @@
                         <td>${t.proyecto_origen || 'General'}</td>
                         <td>${t.equipo || '<em style="color:var(--text-muted);">Sin Equipo</em>'}</td>
                         <td>${t.asignado || '<em style="color:var(--text-muted);">Sin Asignar</em>'}</td>
+                        <td>${statusText}</td>
                         <td>
                             ${movementInfo}<br>
                             ${lastCommentText}

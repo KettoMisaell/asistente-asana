@@ -27,11 +27,13 @@ def init_db():
             equipo TEXT,
             gid_equipo TEXT,
             proyecto_origen TEXT,
+            gid_proyecto TEXT,
             asignado TEXT,
             completada BOOLEAN,
             atrasada BOOLEAN,
             fecha_inicio TEXT,
             fecha_vencimiento TEXT,
+            fecha_completada TEXT,
             avance TEXT,
             etapa TEXT,
             comentarios_texto TEXT,
@@ -41,11 +43,34 @@ def init_db():
         )
     """)
     
+    # Intentar agregar la columna gid_proyecto de forma dinámica si la tabla ya existía
+    try:
+        cursor.execute("ALTER TABLE tareas ADD COLUMN gid_proyecto TEXT")
+    except sqlite3.OperationalError:
+        # La columna ya existe, ignoramos el error
+        pass
+
+    # Intentar agregar la columna fecha_completada de forma dinámica si la tabla ya existía
+    try:
+        cursor.execute("ALTER TABLE tareas ADD COLUMN fecha_completada TEXT")
+    except sqlite3.OperationalError:
+        # La columna ya existe, ignoramos el error
+        pass
+
+    # Crear tabla de estados de sincronización de proyectos
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS etl_sync_state (
+            proyecto_gid TEXT PRIMARY KEY,
+            last_sync_time TEXT
+        )
+    """)
+    
     # Crear índices para acelerar búsquedas deterministas de la IA
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_tareas_equipo ON tareas(equipo)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_tareas_asignado ON tareas(asignado)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_tareas_completada ON tareas(completada)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_tareas_fecha_vencimiento ON tareas(fecha_vencimiento)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_tareas_gid_proyecto ON tareas(gid_proyecto)")
     
     conn.commit()
     conn.close()

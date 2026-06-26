@@ -1,7 +1,7 @@
 import os
 import requests
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timezone
 import time
 from dotenv import load_dotenv
 import sqlite3
@@ -141,15 +141,122 @@ def fetch_comments_parallel(task_gids, headers, max_workers=10):
             
     return results
 
+def get_project_last_sync(project_gid):
+    """Obtiene la fecha de la última sincronización exitosa de un proyecto."""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("SELECT last_sync_time FROM etl_sync_state WHERE proyecto_gid = ?", (project_gid,))
+    row = cursor.fetchone()
+    conn.close()
+    return row[0] if row else None
+
+def save_project_last_sync(project_gid, sync_time):
+    """Guarda o actualiza la fecha de la última sincronización de un proyecto."""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO etl_sync_state (proyecto_gid, last_sync_time)
+        VALUES (?, ?)
+        ON CONFLICT(proyecto_gid) DO UPDATE SET last_sync_time=excluded.last_sync_time
+    """, (project_gid, sync_time))
+    conn.commit()
+    conn.close()
+
+def delete_orphaned_projects_and_tasks(active_project_gids, active_team_gids):
+    """
+    Elimina los proyectos y tareas huérfanas en la base de datos local que ya no existen
+    en Asana para los equipos configurados.
+    """
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    # 1. Purga de proyectos en etl_sync_state que ya no están activos en Asana
+    cursor.execute("SELECT DISTINCT proyecto_gid FROM etl_sync_state")
+    db_projects = [row[0] for row in cursor.fetchall()]
+    
+    projects_to_delete = [p for p in db_projects if p not in active_project_gids]
+    
+    if projects_to_delete:
+        print(f"Eliminando {len(projects_to_delete)} proyectos huérfanos de la base de datos local...")
+        for p_gid in projects_to_delete:
+            cursor.execute("DELETE FROM tareas WHERE gid_proyecto = ?", (p_gid,))
+            cursor.execute("DELETE FROM etl_sync_state WHERE proyecto_gid = ?", (p_gid,))
+            
+    # 2. Por si acaso hay tareas de un equipo que ya no está mapeado
+    if active_team_gids:
+        placeholders = ",".join(["?"] * len(active_team_gids))
+        cursor.execute(f"DELETE FROM tareas WHERE gid_equipo NOT IN ({placeholders})", active_team_gids)
+        
+    conn.commit()
+    conn.close()
+
+def delete_removed_tasks_from_project(project_gid, current_task_gids):
+    """
+    Elimina de la base de datos local aquellas tareas de un proyecto específico
+    que ya no existen en Asana.
+    """
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT gid_tarea FROM tareas WHERE gid_proyecto = ?", (project_gid,))
+    local_gids = [row[0] for row in cursor.fetchall()]
+    
+    current_set = set(current_task_gids)
+    gids_to_delete = [gid for gid in local_gids if gid not in current_set]
+    
+    if gids_to_delete:
+        print(f"Limpiando {len(gids_to_delete)} tareas eliminadas en Asana para el proyecto {project_gid}...")
+        for i in range(0, len(gids_to_delete), 500):
+            batch = gids_to_delete[i:i+500]
+            placeholders = ",".join(["?"] * len(batch))
+            cursor.execute(f"DELETE FROM tareas WHERE gid_tarea IN ({placeholders})", batch)
+            
+    conn.commit()
+    conn.close()
+
+def get_project_task_gids(project_gid, headers):
+    """
+    Obtiene rápidamente una lista de todos los GIDs de tareas activas de un proyecto.
+    Esta petición es ultraligera ya que solo pide el campo 'gid'.
+    """
+    gids = []
+    offset = None
+    while True:
+        url = f"https://app.asana.com/api/1.0/projects/{project_gid}/tasks"
+        params = {
+            "limit": 100,
+            "opt_fields": "gid"
+        }
+        if offset:
+            params["offset"] = offset
+            
+        response = safe_get(url, headers=headers, params=params)
+        if not response or response.status_code != 200:
+            break
+            
+        data = response.json()
+        for tarea in data.get("data", []):
+            if tarea.get("gid"):
+                gids.append(tarea["gid"])
+                
+        next_page = data.get("next_page")
+        if not next_page:
+            break
+        offset = next_page.get("offset")
+        
+    return gids
+
 def get_tasks_by_teams(team_gids, headers, include_comments=True):
     """
     Extrae tareas de los equipos especificados, calcula métricas derivadas,
     normaliza campos y retorna un DataFrame con los registros listos.
+    Aplica una lógica híbrida (incremental/completo) por proyecto.
     """
     if isinstance(team_gids, str):
         team_gids = [team_gids]
         
     todas_las_tareas = []
+    active_project_gids = []
     
     for team_gid in team_gids:
         # Obtener nombre del equipo
@@ -163,7 +270,17 @@ def get_tasks_by_teams(team_gids, headers, include_comments=True):
         
         for proyecto in proyectos:
             project_gid = proyecto["gid"]
+            active_project_gids.append(project_gid)
+            
+            # Obtener estado de sincronización anterior
+            last_sync_time = get_project_last_sync(project_gid)
+            current_run_time = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            
             offset = None
+            project_tasks_success = True
+            project_tasks_fetched = 0
+            
+            print(f"Procesando proyecto: {proyecto.get('name')} ({project_gid}) | Sincronización anterior: {last_sync_time or 'Ninguna (Sync Completa)'}")
             
             while True:
                 url = f"https://app.asana.com/api/1.0/projects/{project_gid}/tasks"
@@ -189,16 +306,22 @@ def get_tasks_by_teams(team_gids, headers, include_comments=True):
                     ])
                 }
                 
+                # Si ya se sincronizó antes, pedir solo las tareas creadas/modificadas desde entonces
+                if last_sync_time:
+                    params["modified_since"] = last_sync_time
+                
                 if offset:
                     params["offset"] = offset
                     
                 response = safe_get(url, headers=headers, params=params)
                 if not response or response.status_code != 200:
-                    print(f"Error al obtener tareas para el proyecto {project_gid}")
+                    print(f"Error al obtener tareas para el proyecto {project_gid}. Se omitirá la actualización de estado para este proyecto.")
+                    project_tasks_success = False
                     break
                     
                 data = response.json()
                 tareas = data.get("data", [])
+                project_tasks_fetched += len(tareas)
                 
                 for tarea in tareas:
                     # Asignado
@@ -228,11 +351,13 @@ def get_tasks_by_teams(team_gids, headers, include_comments=True):
                         "equipo": nombre_equipo,
                         "gid_equipo": team_gid,
                         "proyecto_origen": proyecto.get("name"),
+                        "gid_proyecto": project_gid,
                         "asignado": asignado,
                         "completada": bool(tarea.get("completed")),
                         "atrasada": bool(atrasada),
                         "fecha_inicio": fecha_inicio,
                         "fecha_vencimiento": fecha_vencimiento,
+                        "fecha_completada": tarea.get("completed_at"),
                         "avance": avance,
                         "etapa": etapa,
                         "created_at": tarea.get("created_at"),
@@ -243,6 +368,18 @@ def get_tasks_by_teams(team_gids, headers, include_comments=True):
                 if not next_page:
                     break
                 offset = next_page.get("offset")
+            
+            # Si el fetch de tareas del proyecto fue exitoso, actualizamos estado y purgamos eliminadas
+            if project_tasks_success:
+                print(f"Proyecto {proyecto.get('name')}: {project_tasks_fetched} tareas nuevas/modificadas detectadas.")
+                save_project_last_sync(project_gid, current_run_time)
+                
+                # Obtener GIDs actuales de tareas en Asana y purgar las locales que falten
+                current_task_gids = get_project_task_gids(project_gid, headers)
+                delete_removed_tasks_from_project(project_gid, current_task_gids)
+                
+    # Eliminar proyectos de nuestra base de datos local que ya no existan en Asana para los equipos configurados
+    delete_orphaned_projects_and_tasks(active_project_gids, team_gids)
                 
     if not todas_las_tareas:
         return pd.DataFrame()
@@ -317,21 +454,23 @@ def save_tasks_to_db(df):
     upsert_query = """
         INSERT INTO tareas (
             gid_tarea, nombre_tarea, descripcion, equipo, gid_equipo, 
-            proyecto_origen, asignado, completada, atrasada, fecha_inicio, 
-            fecha_vencimiento, avance, etapa, comentarios_texto, 
+            proyecto_origen, gid_proyecto, asignado, completada, atrasada, fecha_inicio, 
+            fecha_vencimiento, fecha_completada, avance, etapa, comentarios_texto, 
             fecha_ultimo_comentario, dias_sin_movimiento, last_updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         ON CONFLICT(gid_tarea) DO UPDATE SET
             nombre_tarea=excluded.nombre_tarea,
             descripcion=excluded.descripcion,
             equipo=excluded.equipo,
             gid_equipo=excluded.gid_equipo,
             proyecto_origen=excluded.proyecto_origen,
+            gid_proyecto=excluded.gid_proyecto,
             asignado=excluded.asignado,
             completada=excluded.completada,
             atrasada=excluded.atrasada,
             fecha_inicio=excluded.fecha_inicio,
             fecha_vencimiento=excluded.fecha_vencimiento,
+            fecha_completada=excluded.fecha_completada,
             avance=excluded.avance,
             etapa=excluded.etapa,
             comentarios_texto=excluded.comentarios_texto,
@@ -349,11 +488,13 @@ def save_tasks_to_db(df):
             row["equipo"],
             row["gid_equipo"],
             row["proyecto_origen"],
+            row["gid_proyecto"],
             row["asignado"],
             int(row["completada"]),
             int(row["atrasada"]),
             row["fecha_inicio"],
             row["fecha_vencimiento"],
+            row["fecha_completada"],
             row["avance"],
             row["etapa"],
             row["comentarios_texto"],
@@ -369,17 +510,23 @@ def save_tasks_to_db(df):
 def run_etl():
     """Ejecuta el proceso completo de ETL."""
     print("Iniciando extracción optimizada y en paralelo desde Asana...")
-    equipos_interes = [
-        '1213716338728426', 
-        '1213716338728417', 
-        '1213716338728432', 
-        '1213716338728439'
-    ]
+    
+    # Obtener equipos desde variables de entorno con fallback
+    teams_env = os.getenv("ASANA_TEAMS")
+    if teams_env:
+        equipos_interes = [t.strip() for t in teams_env.split(",") if t.strip()]
+    else:
+        equipos_interes = [
+            '1213716338728426', 
+            '1213716338728417', 
+            '1213716338728432', 
+            '1213716338728439'
+        ]
     
     start_time = time.time()
     try:
         df = get_tasks_by_teams(equipos_interes, headers)
-        print(f"Extracción completada en {time.time() - start_time:.2f} segundos. Tareas encontradas: {len(df)}")
+        print(f"Extracción completada en {time.time() - start_time:.2f} segundos. Tareas encontradas en esta corrida: {len(df)}")
         save_tasks_to_db(df)
         print("Proceso ETL finalizado exitosamente.")
         return True
