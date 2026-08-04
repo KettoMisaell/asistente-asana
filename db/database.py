@@ -39,6 +39,10 @@ def init_db():
             comentarios_texto TEXT,
             fecha_ultimo_comentario TEXT,
             dias_sin_movimiento INTEGER,
+            created_at TEXT,
+            modified_at TEXT,
+            fecha_vencimiento_original TEXT,
+            reprogramada BOOLEAN DEFAULT 0,
             last_updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     """)
@@ -55,6 +59,30 @@ def init_db():
         cursor.execute("ALTER TABLE tareas ADD COLUMN fecha_completada TEXT")
     except sqlite3.OperationalError:
         # La columna ya existe, ignoramos el error
+        pass
+
+    # Intentar agregar la columna created_at de forma dinámica si la tabla ya existía
+    try:
+        cursor.execute("ALTER TABLE tareas ADD COLUMN created_at TEXT")
+    except sqlite3.OperationalError:
+        pass
+
+    # Intentar agregar la columna modified_at de forma dinámica si la tabla ya existía
+    try:
+        cursor.execute("ALTER TABLE tareas ADD COLUMN modified_at TEXT")
+    except sqlite3.OperationalError:
+        pass
+
+    # Intentar agregar la columna fecha_vencimiento_original de forma dinámica si la tabla ya existía
+    try:
+        cursor.execute("ALTER TABLE tareas ADD COLUMN fecha_vencimiento_original TEXT")
+    except sqlite3.OperationalError:
+        pass
+
+    # Intentar agregar la columna reprogramada de forma dinámica si la tabla ya existía
+    try:
+        cursor.execute("ALTER TABLE tareas ADD COLUMN reprogramada BOOLEAN DEFAULT 0")
+    except sqlite3.OperationalError:
         pass
 
     # Crear tabla de estados de sincronización de proyectos

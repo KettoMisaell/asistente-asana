@@ -170,8 +170,8 @@ def delete_orphaned_projects_and_tasks(active_project_gids, active_team_gids):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
-    # 1. Purga de proyectos en etl_sync_state que ya no están activos en Asana
-    cursor.execute("SELECT DISTINCT proyecto_gid FROM etl_sync_state")
+    # 1. Purga de proyectos en la base de datos local que ya no están activos en Asana
+    cursor.execute("SELECT DISTINCT gid_proyecto FROM tareas WHERE gid_proyecto IS NOT NULL")
     db_projects = [row[0] for row in cursor.fetchall()]
     
     projects_to_delete = [p for p in db_projects if p not in active_project_gids]
@@ -436,9 +436,7 @@ def get_tasks_by_teams(team_gids, headers, include_comments=True):
         tarea["fecha_ultimo_comentario"] = fecha_ultimo_comentario_str
         tarea["dias_sin_movimiento"] = int(dias_sin_movimiento)
         
-        # Limpiar llaves auxiliares que no van en la tabla de la base de datos
-        tarea.pop("created_at", None)
-        tarea.pop("modified_at", None)
+        # Ya NO limpiamos creadas_at ni modified_at para poder guardarlas en la base de datos
 
     return pd.DataFrame(todas_las_tareas)
 
@@ -456,8 +454,9 @@ def save_tasks_to_db(df):
             gid_tarea, nombre_tarea, descripcion, equipo, gid_equipo, 
             proyecto_origen, gid_proyecto, asignado, completada, atrasada, fecha_inicio, 
             fecha_vencimiento, fecha_completada, avance, etapa, comentarios_texto, 
-            fecha_ultimo_comentario, dias_sin_movimiento, last_updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            fecha_ultimo_comentario, dias_sin_movimiento, created_at, modified_at,
+            fecha_vencimiento_original, reprogramada, last_updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, CURRENT_TIMESTAMP)
         ON CONFLICT(gid_tarea) DO UPDATE SET
             nombre_tarea=excluded.nombre_tarea,
             descripcion=excluded.descripcion,
@@ -476,6 +475,15 @@ def save_tasks_to_db(df):
             comentarios_texto=excluded.comentarios_texto,
             fecha_ultimo_comentario=excluded.fecha_ultimo_comentario,
             dias_sin_movimiento=excluded.dias_sin_movimiento,
+            created_at=excluded.created_at,
+            modified_at=excluded.modified_at,
+            fecha_vencimiento_original=COALESCE(tareas.fecha_vencimiento_original, excluded.fecha_vencimiento_original),
+            reprogramada=CASE 
+                WHEN (tareas.fecha_vencimiento_original IS NOT NULL 
+                      AND excluded.fecha_vencimiento IS NOT NULL 
+                      AND tareas.fecha_vencimiento_original != excluded.fecha_vencimiento) THEN 1 
+                ELSE tareas.reprogramada 
+            END,
             last_updated_at=CURRENT_TIMESTAMP
     """
     
@@ -499,7 +507,10 @@ def save_tasks_to_db(df):
             row["etapa"],
             row["comentarios_texto"],
             row["fecha_ultimo_comentario"],
-            int(row["dias_sin_movimiento"])
+            int(row["dias_sin_movimiento"]),
+            row["created_at"],
+            row["modified_at"],
+            row["fecha_vencimiento"]  # Servirá como fecha_vencimiento_original en el INSERT inicial
         ))
         
     cursor.executemany(upsert_query, records)

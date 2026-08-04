@@ -752,7 +752,7 @@
             <!-- CHARTS GRID (ABAJO DE ENTREGABLES) -->
             <div class="charts-grid">
                 <div class="chart-card" style="height: 230px; border: 1px solid #e2e8f0; border-radius: var(--border-radius); box-shadow: var(--shadow-sm); padding: 16px;">
-                    <span class="chart-title" style="font-size: 0.9rem; font-weight: 700; margin-bottom: 10px;">Distribución de EEs por Equipo</span>
+                    <span class="chart-title" style="font-size: 0.9rem; font-weight: 700; margin-bottom: 10px;">Distribución de EEs Actualizados/Generados esta Semana por Equipo</span>
                     <div class="chart-wrapper">
                         <canvas id="projectsChart"></canvas>
                     </div>
@@ -854,6 +854,70 @@
         let projectsChart = null;
         let responsiblesChart = null;
 
+        // --- FUNCIONES DE CLASIFICACIÓN Y FECHAS (NUEVAS) ---
+        function isThisWeek(dateStr) {
+            if (!dateStr) return false;
+            const date = new Date(dateStr);
+            const now = new Date();
+            
+            // Obtener el lunes de la semana actual
+            const startOfWeek = new Date(now);
+            const day = startOfWeek.getDay();
+            const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1); // Lunes es el primer día de la semana laboral
+            startOfWeek.setDate(diff);
+            startOfWeek.setHours(0, 0, 0, 0);
+            
+            // Fin de la semana actual (Domingo 23:59:59)
+            const endOfWeek = new Date(startOfWeek);
+            endOfWeek.setDate(startOfWeek.getDate() + 6);
+            endOfWeek.setHours(23, 59, 59, 999);
+            
+            return date >= startOfWeek && date <= endOfWeek;
+        }
+
+        function getTaskStatusHTML(t) {
+            let statusText = '';
+            if (t.completada) {
+                if (t.reprogramada) {
+                    statusText = `<span class="badge warning" style="background-color: #fef3c7; color: #d97706; border: 1px solid #fcd34d; padding: 4px 8px; border-radius: 4px; font-weight: 600;">Entregada Reprogramada</span>`;
+                } else if (t.fecha_completada && t.fecha_vencimiento) {
+                    const compDay = t.fecha_completada.substring(0, 10);
+                    if (compDay <= t.fecha_vencimiento) {
+                        statusText = `<span class="badge success" style="background-color: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; padding: 4px 8px; border-radius: 4px; font-weight: 600;">Entregada en Plazo</span>`;
+                    } else {
+                        statusText = `<span class="badge danger" style="background-color: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; padding: 4px 8px; border-radius: 4px; font-weight: 600;">Entregada Fuera de Plazo</span>`;
+                    }
+                } else {
+                    statusText = `<span class="badge purple" style="background-color: #f3e8ff; color: #6b21a8; border: 1px solid #e9d5ff; padding: 4px 8px; border-radius: 4px; font-weight: 600;">Entregada en Plazo</span>`;
+                }
+                
+                if (t.fecha_completada) {
+                    try {
+                        const completedDate = new Date(t.fecha_completada);
+                        const now = new Date();
+                        const diffTime = Math.abs(now - completedDate);
+                        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                        if (diffDays <= 0) {
+                            statusText += `<br><span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">Completada hoy</span>`;
+                        } else if (diffDays === 1) {
+                            statusText += `<br><span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">Completada ayer</span>`;
+                        } else {
+                            statusText += `<br><span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">Hace ${diffDays} días</span>`;
+                        }
+                    } catch (e) {
+                        console.error("Error al calcular diferencia de fechas:", e);
+                    }
+                }
+            } else {
+                if (t.atrasada) {
+                    statusText = `<span class="badge danger" style="padding: 4px 8px; border-radius: 4px; font-weight: 600;">Pendiente Vencida</span>`;
+                } else {
+                    statusText = `<span class="badge success" style="padding: 4px 8px; border-radius: 4px; font-weight: 600;">Pendiente en Plazo</span>`;
+                }
+            }
+            return statusText;
+        }
+
         const teamFilterElement = document.getElementById('teamFilter');
 
         teamFilterElement.addEventListener('change', () => {
@@ -946,8 +1010,11 @@
                 // Cargar grid de entregables
                 loadStrategicGrid(activeEes);
 
-                // Renderizar gráficos con la distribución de EEs
-                renderEEsByTeamChart(activeEes);
+                // Filtrar EEs que han sido creados o actualizados en la semana actual
+                const eesThisWeek = activeEes.filter(t => isThisWeek(t.created_at) || isThisWeek(t.modified_at));
+
+                // Renderizar gráficos con la distribución de EEs (el gráfico de equipos filtra por semana)
+                renderEEsByTeamChart(eesThisWeek);
                 renderEEsByResponsibleChart(activeEes);
 
             } catch (err) {
@@ -1213,34 +1280,8 @@
                         movementInfo = `<span class="badge warning" style="padding: 2px 6px; font-size:0.7rem;">Inactivo: ${t.dias_sin_movimiento} días</span>`;
                     }
 
-                    // Calcular etiqueta de completado y hace cuánto tiempo
-                    let statusText = '';
-                    if (t.completada) {
-                        statusText = `<span class="badge purple">Completada</span>`;
-                        if (t.fecha_completada) {
-                            try {
-                                const completedDate = new Date(t.fecha_completada);
-                                const now = new Date();
-                                const diffTime = Math.abs(now - completedDate);
-                                const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-                                if (diffDays <= 0) {
-                                    statusText += `<br><span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">Completada hoy</span>`;
-                                } else if (diffDays === 1) {
-                                    statusText += `<br><span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">Completada ayer</span>`;
-                                } else {
-                                    statusText += `<br><span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">Hace ${diffDays} días</span>`;
-                                }
-                            } catch (e) {
-                                console.error("Error al calcular diferencia de fechas:", e);
-                            }
-                        }
-                    } else {
-                        if (t.atrasada) {
-                            statusText = `<span class="badge danger">Pendiente Vencida</span>`;
-                        } else {
-                            statusText = `<span class="badge success">Pendiente en Plazo</span>`;
-                        }
-                    }
+                    // Calcular etiqueta de clasificación dinámica de estado
+                    let statusText = getTaskStatusHTML(t);
 
                     tr.innerHTML = `
                         <td style="font-weight: 600;">
@@ -1553,34 +1594,8 @@
                         movementInfo = `<span class="badge danger" style="padding: 2px 6px; font-size:0.7rem;">Grave: ${t.dias_sin_movimiento} días inactivo</span>`;
                     }
 
-                    // Calcular etiqueta de completado y hace cuánto tiempo
-                    let statusText = '';
-                    if (t.completada) {
-                        statusText = `<span class="badge purple">Completada</span>`;
-                        if (t.fecha_completada) {
-                            try {
-                                const completedDate = new Date(t.fecha_completada);
-                                const now = new Date();
-                                const diffTime = Math.abs(now - completedDate);
-                                const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-                                if (diffDays <= 0) {
-                                    statusText += `<br><span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">Completada hoy</span>`;
-                                } else if (diffDays === 1) {
-                                    statusText += `<br><span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">Completada ayer</span>`;
-                                } else {
-                                    statusText += `<br><span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">Hace ${diffDays} días</span>`;
-                                }
-                            } catch (e) {
-                                console.error("Error al calcular diferencia de fechas:", e);
-                            }
-                        }
-                    } else {
-                        if (t.atrasada) {
-                            statusText = `<span class="badge danger">Pendiente Vencida</span>`;
-                        } else {
-                            statusText = `<span class="badge success">Pendiente en Plazo</span>`;
-                        }
-                    }
+                    // Calcular etiqueta de clasificación dinámica de estado
+                    let statusText = getTaskStatusHTML(t);
 
                     tr.innerHTML = `
                         <td style="font-weight: 600;">
