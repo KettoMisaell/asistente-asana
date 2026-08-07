@@ -19,8 +19,12 @@ from db.queries import (
 )
 from etl.asana_extractor import run_etl
 from ai.engine import ejecutar_consulta_chat, generar_reporte_semanal, generar_insight_tarea, generar_mensaje_telegram
+from db.database import init_db
 
 load_dotenv()
+
+# Asegurar que las tablas e índices estén creadas y actualizadas en la BD
+init_db()
 
 app = FastAPI(
     title="Asistente Asana Executive",
