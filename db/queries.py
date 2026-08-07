@@ -272,15 +272,13 @@ def calcular_completitud_tarea(t):
         "asignado": bool(t.get("asignado")),
         "fecha_vencimiento": bool(t.get("fecha_vencimiento")),
         "descripcion": bool(t.get("descripcion") and len(t.get("descripcion").strip()) > 30),
-        "etapa": bool(t.get("etapa") or t.get("avance")),
         "evidencia": bool(t.get("fecha_ultimo_comentario") or (t.get("comentarios_texto") and len(t.get("comentarios_texto").strip()) > 10))
     }
     score = 0
-    score += 20 if detalles["asignado"] else 0
-    score += 20 if detalles["fecha_vencimiento"] else 0
-    score += 20 if detalles["descripcion"] else 0
-    score += 20 if detalles["etapa"] else 0
-    score += 20 if detalles["evidencia"] else 0
+    score += 25 if detalles["asignado"] else 0
+    score += 25 if detalles["fecha_vencimiento"] else 0
+    score += 25 if detalles["descripcion"] else 0
+    score += 25 if detalles["evidencia"] else 0
     return score, detalles
 
 def obtener_riesgo_tarea(t, scf=None):
@@ -314,11 +312,11 @@ def get_weekly_update_metrics_by_team():
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # Obtener todas las tareas estratégicas activas
+    # Obtener todas las tareas estratégicas activas o completadas recientemente (últimos 7 días)
     cursor.execute("""
         SELECT * FROM tareas 
         WHERE (nombre_tarea LIKE 'EE %' OR nombre_tarea LIKE '% EE %' OR etapa LIKE '%Crítica%')
-        AND completada = 0
+        AND (completada = 0 OR (completada = 1 AND dias_sin_movimiento <= 7))
     """)
     tareas = [dict(r) for r in cursor.fetchall()]
     conn.close()
@@ -333,8 +331,11 @@ def get_weekly_update_metrics_by_team():
                 "ee_actualizados_esta_semana": 0
             }
         
-        equipos_data[equipo]["ee_totales_pendientes"] += 1
-        # Se considera actualizado si tiene actividad en los últimos 7 días
+        # Solo se suman a pendientes si la tarea NO está completada
+        if t.get("completada") == 0:
+            equipos_data[equipo]["ee_totales_pendientes"] += 1
+            
+        # Se considera actualizado si tiene actividad o fue concluido en los últimos 7 días
         if (t.get("dias_sin_movimiento") or 0) <= 7:
             equipos_data[equipo]["ee_actualizados_esta_semana"] += 1
             

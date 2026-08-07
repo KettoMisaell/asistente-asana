@@ -736,7 +736,7 @@
             </div>
 
             <!-- TABLERO DE CONTROL DE METAS Y KRs (ESTRATEGIA) -->
-            <div class="table-card" style="padding: 20px; border: 1px solid #e2e8f0; border-radius: var(--border-radius); box-shadow: var(--shadow-sm); background: linear-gradient(to right, #faf5ff, #ffffff);">
+            <div class="table-card" style="min-height: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: var(--border-radius); box-shadow: var(--shadow-sm); background: linear-gradient(to right, #faf5ff, #ffffff);">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">
                     <h2 style="font-size: 1.1rem; font-weight: 700; color: var(--color-strategic); display: flex; align-items: center; gap: 8px;">
                         🎯 Tablero de Monitoreo de Objetivos de Gestión (KRs)
@@ -815,11 +815,33 @@
 
             <!-- PANEL DE CONTROL DE ENTREGABLES ESTRATÉGICOS (MÁXIMA PRIORIDAD EN MEDIO) -->
             <div class="table-card" style="min-height: 380px; display: flex; flex-direction: column; padding: 20px; border: 1px solid #e2e8f0; border-radius: var(--border-radius); box-shadow: var(--shadow-sm);">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">
-                    <h2 style="font-size: 1.1rem; font-weight: 700; color: var(--bg-sidebar);">
-                        Centro de Control de Entregables Estratégicos (EE)
-                    </h2>
-                    <span style="font-size: 0.8rem; color: var(--text-muted);">Haga clic en cualquier entregable para obtener un análisis ejecutivo de IA</span>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; flex-wrap: wrap; gap: 10px;">
+                    <div>
+                        <h2 style="font-size: 1.1rem; font-weight: 700; color: var(--bg-sidebar); margin: 0;">
+                            Centro de Control de Entregables Estratégicos (EE)
+                        </h2>
+                        <p style="font-size: 0.8rem; color: var(--text-muted); margin: 4px 0 0 0;">
+                            Audite la calidad de la ficha de entregables estratégicos y genere recomendaciones
+                        </p>
+                    </div>
+                    
+                    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">Mostrar:</span>
+                            <select id="statusFilter" onchange="filterStrategicGrid()" style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.8rem; outline: none; background: white; cursor: pointer;">
+                                <option value="active">Activos (Por Entregar)</option>
+                                <option value="completed_10d">Completados (Últimos 10 días)</option>
+                            </select>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">Filtro Ficha:</span>
+                            <select id="completenessFilter" onchange="filterStrategicGrid()" style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.8rem; outline: none; background: white; cursor: pointer;">
+                                <option value="all">Ver Todos</option>
+                                <option value="incomplete">⚠️ Incompletos (&lt;100%)</option>
+                                <option value="complete">🟢 Completos (100%)</option>
+                            </select>
+                        </div>
+                    </div>
                 </div>
                 
                 <div class="ee-grid" id="eeGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin-bottom: 8px; flex-grow: 1; overflow-y: auto; max-height: 340px; padding-right: 4px;">
@@ -961,6 +983,8 @@
         let currentTab = 'atrasadas';
         let projectsChart = null;
         let responsiblesChart = null;
+        let globalActiveEes = [];
+        let globalStrategicTasks = [];
 
         // --- FUNCIONES DE CLASIFICACIÓN Y FECHAS (NUEVAS) ---
         function isThisWeek(dateStr) {
@@ -1137,12 +1161,47 @@
                 const tr = document.createElement('tr');
                 tr.style.borderBottom = "1px solid #f1f5f9";
                 tr.style.fontSize = "0.85rem";
-                tr.innerHTML = `
-                    <td style="padding: 10px 8px; font-weight: 600;">${eq.equipo}</td>
-                    <td style="padding: 10px 8px; text-align: center;">${eq.ee_totales_pendientes}</td>
-                    <td style="padding: 10px 8px; text-align: center; font-weight: bold; color: ${eq.ee_actualizados_esta_semana >= 3 ? '#15803d' : '#b91c1c'}">${eq.ee_actualizados_esta_semana}</td>
-                    <td style="padding: 10px 8px; text-align: center;">${statusBadge}</td>
-                `;
+                
+                // Creación programática de celdas para evitar errores de escape
+                const tdTeam = document.createElement('td');
+                tdTeam.style.padding = "10px 8px";
+                tdTeam.style.fontWeight = "600";
+                tdTeam.style.color = "var(--color-accent)";
+                tdTeam.style.cursor = "pointer";
+                tdTeam.style.textDecoration = "underline";
+                tdTeam.innerText = eq.equipo;
+                tdTeam.onclick = () => filterDashboardByTeamModal(eq.equipo, 'all');
+
+                const tdPending = document.createElement('td');
+                tdPending.style.padding = "10px 8px";
+                tdPending.style.textAlign = "center";
+                tdPending.style.color = "var(--color-accent)";
+                tdPending.style.cursor = "pointer";
+                tdPending.style.textDecoration = "underline";
+                tdPending.style.fontWeight = "600";
+                tdPending.innerText = eq.ee_totales_pendientes;
+                tdPending.onclick = () => filterDashboardByTeamModal(eq.equipo, 'all_pending');
+
+                const tdUpdated = document.createElement('td');
+                tdUpdated.style.padding = "10px 8px";
+                tdUpdated.style.textAlign = "center";
+                tdUpdated.style.color = "var(--color-accent)";
+                tdUpdated.style.cursor = "pointer";
+                tdUpdated.style.textDecoration = "underline";
+                tdUpdated.style.fontWeight = "bold";
+                tdUpdated.innerText = eq.ee_actualizados_esta_semana;
+                tdUpdated.onclick = () => filterDashboardByTeamModal(eq.equipo, 'updated_week');
+
+                const tdStatus = document.createElement('td');
+                tdStatus.style.padding = "10px 8px";
+                tdStatus.style.textAlign = "center";
+                tdStatus.innerHTML = statusBadge;
+
+                tr.appendChild(tdTeam);
+                tr.appendChild(tdPending);
+                tr.appendChild(tdUpdated);
+                tr.appendChild(tdStatus);
+                
                 tbody.appendChild(tr);
             });
             
@@ -1151,6 +1210,45 @@
 
         function closeEquiposModal() {
             document.getElementById('equiposModal').classList.remove('active');
+        }
+
+        async function filterDashboardByTeamModal(team, type = 'all') {
+            // 1. Cerrar el modal
+            closeEquiposModal();
+            
+            // 2. Establecer el filtro de equipo en el sidebar
+            const teamSelect = document.getElementById('teamFilter');
+            teamSelect.value = team;
+            
+            // 3. Recargar el dashboard para ese equipo
+            await loadDashboardData();
+            
+            // 4. Si se especificó un tipo de filtro, aplicarlo al Centro de Control de EE
+            if (type === 'updated_week') {
+                // Filtrar por actualizados en la semana actual (dias_sin_movimiento <= 7)
+                const filtered = globalStrategicTasks.filter(t => t.dias_sin_movimiento <= 7);
+                loadStrategicGrid(filtered);
+                
+                // Resincronizar selectores visuales
+                document.getElementById('statusFilter').value = 'active'; // Se enfoca en activos por defecto
+                document.getElementById('completenessFilter').value = 'all';
+            } else if (type === 'all_pending') {
+                // Mostrar todos los activos pendientes
+                document.getElementById('statusFilter').value = 'active';
+                document.getElementById('completenessFilter').value = 'all';
+                filterStrategicGrid();
+            } else {
+                // Filtro general por equipo
+                document.getElementById('statusFilter').value = 'active';
+                document.getElementById('completenessFilter').value = 'all';
+                filterStrategicGrid();
+            }
+            
+            // 5. Desplazamiento suave al Centro de Control de EEs
+            const eeSection = document.getElementById('eeGrid').parentElement;
+            if (eeSection) {
+                eeSection.scrollIntoView({ behavior: 'smooth' });
+            }
         }
 
         async function loadDashboardData() {
@@ -1198,6 +1296,9 @@
                 const res = await fetch(strategicUrl);
                 const tasks = await res.json();
 
+                // Guardar la lista completa de entregables estratégicos (activos y completados)
+                globalStrategicTasks = tasks;
+
                 // Filtrar solo las tareas activas para la vista de entregables (EE)
                 const activeEes = tasks.filter(t => !t.completada);
                 
@@ -1211,11 +1312,11 @@
                 document.getElementById('valEstrategicasAtrasadas').innerText = overdueEes;
                 document.getElementById('valEstrategicasInactivas').innerText = inactiveEes;
 
-                // Cargar grid de entregables
-                loadStrategicGrid(activeEes);
+                // Cargar grid de entregables ejecutando la lógica unificada de filtrado
+                filterStrategicGrid();
 
-                // Filtrar EEs que han sido creados o actualizados en la semana actual
-                const eesThisWeek = activeEes.filter(t => isThisWeek(t.created_at) || isThisWeek(t.modified_at));
+                // Filtrar EEs que han sido creados o actualizados en los últimos 7 días (alineado con la métrica del KR de equipos)
+                const eesThisWeek = tasks.filter(t => t.dias_sin_movimiento <= 7);
 
                 // Renderizar gráficos con la distribución de EEs (el gráfico de equipos filtra por semana)
                 renderEEsByTeamChart(eesThisWeek);
@@ -1226,12 +1327,53 @@
             }
         }
 
+        function filterStrategicGrid() {
+            const statusVal = document.getElementById('statusFilter').value;
+            const completenessVal = document.getElementById('completenessFilter').value;
+            
+            let filteredTasks = [];
+
+            if (statusVal === 'active') {
+                filteredTasks = globalStrategicTasks.filter(t => !t.completada);
+                document.getElementById('completenessFilter').disabled = false;
+                
+                if (completenessVal === 'incomplete') {
+                    filteredTasks = filteredTasks.filter(t => calcularCompletitudClientSide(t) < 100);
+                } else if (completenessVal === 'complete') {
+                    filteredTasks = filteredTasks.filter(t => calcularCompletitudClientSide(t) === 100);
+                }
+            } else if (statusVal === 'completed_10d') {
+                filteredTasks = globalStrategicTasks.filter(t => {
+                    if (!t.completada) return false;
+                    
+                    // Considerar completadas en los últimos 10 días
+                    if (t.dias_sin_movimiento <= 10) return true;
+                    if (t.fecha_completada) {
+                        try {
+                            const compDate = new Date(t.fecha_completada);
+                            const today = new Date();
+                            const diffTime = Math.abs(today - compDate);
+                            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                            return diffDays <= 10;
+                        } catch (e) {
+                            console.error(e);
+                        }
+                    }
+                    return t.dias_sin_movimiento <= 10;
+                });
+                
+                document.getElementById('completenessFilter').disabled = true;
+            }
+
+            loadStrategicGrid(filteredTasks);
+        }
+
         function loadStrategicGrid(tasks) {
             const grid = document.getElementById('eeGrid');
             grid.innerHTML = '';
             
             if (tasks.length === 0) {
-                grid.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 40px; font-size: 0.85rem;">No se encontraron entregables estratégicos activos para este equipo.</div>`;
+                grid.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 40px; font-size: 0.85rem;">No se encontraron entregables estratégicos activos para este equipo o filtro de completitud.</div>`;
                 return;
             }
 
@@ -1240,24 +1382,11 @@
                 card.className = 'ee-card';
                 
                 const scf = calcularCompletitudClientSide(t);
-                const riesgo = obtenerRiesgoClientSide(t, scf);
+                const estado = obtenerEstadoVencimiento(t);
                 
-                // Color de borde dinámico según riesgo ponderado (IRP)
-                let borderColor = '#10b981'; // Verde En Plazo
-                let statusBadgeClass = 'success';
-                let statusBadgeText = 'En Plazo';
-
-                if (riesgo === 'Crítico') {
-                    borderColor = '#ef4444'; // Rojo
-                    statusBadgeClass = 'danger';
-                    statusBadgeText = '🔴 Crítico';
-                } else if (riesgo === 'Medio') {
-                    borderColor = '#f59e0b'; // Ámbar
-                    statusBadgeClass = 'warning';
-                    statusBadgeText = '🟡 Riesgo Medio';
-                } else {
-                    statusBadgeText = '🟢 En Plazo';
-                }
+                let borderColor = estado.color;
+                let statusBadgeClass = estado.cssClass;
+                let statusBadgeText = estado.text;
 
                 card.style.borderLeft = `4px solid ${borderColor}`;
                 card.style.padding = '14px';
@@ -1283,7 +1412,39 @@
                     card.style.borderColor = '#e2e8f0';
                 };
 
-                card.onclick = () => openInsightPanel(t.gid_tarea, t.nombre_tarea);
+                // Click on the card itself shows full details without triggering AI insight automatically
+                card.onclick = () => {
+                    openInsightPanel(t, false);
+                };
+
+                // COMPUTE MISSING FIELDS
+                const detalles = {
+                    asignado: !!t.asignado,
+                    fecha_vencimiento: !!t.fecha_vencimiento,
+                    descripcion: !!(t.descripcion && t.descripcion.trim().length > 30),
+                    evidencia: !!(t.fecha_ultimo_comentario || (t.comentarios_texto && t.comentarios_texto.trim().length > 10))
+                };
+                
+                let missing = [];
+                if (!detalles.asignado) missing.push("Responsable");
+                if (!detalles.fecha_vencimiento) missing.push("Vencimiento");
+                if (!detalles.descripcion) missing.push("Descripción (>30c)");
+                if (!detalles.evidencia) missing.push("Evidencia");
+
+                let missingHtml = "";
+                if (scf < 100) {
+                    missingHtml = `
+                        <div style="font-size: 0.7rem; color: #b91c1c; background-color: #fef2f2; border: 1px dashed #fca5a5; padding: 6px; border-radius: 4px; line-height: 1.35; margin-bottom: 2px;">
+                            <strong>Falta:</strong> ${missing.join(', ')}
+                        </div>
+                    `;
+                } else {
+                    missingHtml = `
+                        <div style="font-size: 0.7rem; color: var(--color-success); background-color: #ecfdf5; border: 1px dashed #a7f3d0; padding: 6px; border-radius: 4px; line-height: 1.35; font-weight: 600; margin-bottom: 2px;">
+                            🟢 Ficha completa
+                        </div>
+                    `;
+                }
 
                 card.innerHTML = `
                     <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -1297,10 +1458,35 @@
                         <span>📋 Ficha: <strong>${scf}%</strong></span>
                         <span>🔄 Sin mov: <strong>${t.dias_sin_movimiento}d</strong></span>
                     </div>
+                    
+                    ${missingHtml}
+
                     <div style="font-size: 0.75rem; color: var(--text-muted); border-top: 1px solid #f1f5f9; padding-top: 8px; margin-top: auto; display: flex; justify-content: space-between; align-items: center;">
                         <span>Responsable: <strong style="color: var(--text-primary); font-weight: 600;">${t.asignado || 'Sin Asignar'}</strong></span>
                     </div>
+                    
+                    <div style="margin-top: 4px;">
+                        <button class="btn-ai-insight" style="width: 100%; background-color: var(--color-strategic); color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 0.72rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; transition: var(--transition);">
+                            💡 Recomendación IA
+                        </button>
+                    </div>
                 `;
+
+                // Agregar evento onclick de forma programática al botón para evitar escapes raros de nombres
+                const aiBtn = card.querySelector('.btn-ai-insight');
+                aiBtn.onclick = (e) => {
+                    e.stopPropagation(); // Evitar disparar el click de la tarjeta
+                    openInsightPanel(t, true); // Abrir directamente con análisis IA
+                };
+
+                // Estilo hover dinámico
+                aiBtn.onmouseover = () => {
+                    aiBtn.style.opacity = '0.9';
+                };
+                aiBtn.onmouseout = () => {
+                    aiBtn.style.opacity = '1';
+                };
+
                 grid.appendChild(card);
             });
         }
@@ -1470,50 +1656,66 @@
                 asignado: !!t.asignado,
                 fecha_vencimiento: !!t.fecha_vencimiento,
                 descripcion: !!(t.descripcion && t.descripcion.trim().length > 30),
-                etapa: !!(t.etapa || t.avance),
                 evidencia: !!(t.fecha_ultimo_comentario || (t.comentarios_texto && t.comentarios_texto.trim().length > 10))
             };
-            scf += detalles.asignado ? 20 : 0;
-            scf += detalles.fecha_vencimiento ? 20 : 0;
-            scf += detalles.descripcion ? 20 : 0;
-            scf += detalles.etapa ? 20 : 0;
-            scf += detalles.evidencia ? 20 : 0;
+            scf += detalles.asignado ? 25 : 0;
+            scf += detalles.fecha_vencimiento ? 25 : 0;
+            scf += detalles.descripcion ? 25 : 0;
+            scf += detalles.evidencia ? 25 : 0;
             return scf;
         }
 
-        function obtenerRiesgoClientSide(t, scf) {
-            if (t.completada) return "En Plazo";
-            
-            let avanceNum = 0;
-            const avanceStr = t.avance || "0";
-            const match = avanceStr.match(/\d+/);
-            if (match) avanceNum = parseInt(match[0]);
-            
-            if (t.atrasada) return "Crítico";
-            if (t.dias_sin_movimiento >= 14 && avanceNum < 90) return "Crítico";
-            
-            if (t.dias_sin_movimiento >= 7 || scf < 80) return "Medio";
-            
-            return "En Plazo";
+        function obtenerEstadoVencimiento(t) {
+            if (t.completada) {
+                let compLabel = "✓ Completada";
+                if (t.fecha_completada) {
+                    try {
+                        const completedDate = new Date(t.fecha_completada);
+                        const now = new Date();
+                        const diffTime = Math.abs(now - completedDate);
+                        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                        if (diffDays <= 0) compLabel = "✓ Completada hoy";
+                        else if (diffDays === 1) compLabel = "✓ Completada ayer";
+                        else compLabel = `✓ Completada hace ${diffDays}d`;
+                    } catch (e) {
+                        console.error(e);
+                    }
+                }
+                return { text: compLabel, cssClass: "success", color: "#047857" };
+            }
+
+            let daysRemaining = null;
+            if (t.fecha_vencimiento) {
+                const dueDate = new Date(t.fecha_vencimiento + 'T00:00:00');
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const diffTime = dueDate - today;
+                daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            }
+
+            if (t.atrasada || (daysRemaining !== null && daysRemaining < 0)) {
+                return { text: "🔴 Vencida", cssClass: "danger", color: "#ef4444" };
+            } else if (daysRemaining !== null && daysRemaining >= 0 && daysRemaining <= 5) {
+                return { text: `🟡 Próxima a vencer (${daysRemaining}d)`, cssClass: "warning", color: "#f59e0b" };
+            } else {
+                return { text: "🟢 En Plazo", cssClass: "success", color: "#10b981" };
+            }
         }
 
-        async function openInsightPanel(gid, taskName) {
-            const panel = document.getElementById('insightPanel');
-            const title = document.getElementById('insightPanelTitle');
-            const body = document.getElementById('insightPanelBody');
-            
-            title.innerText = taskName;
-            panel.classList.add('active');
-            
-            // Colocar un loading spinner profesional
-            body.innerHTML = `
-                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 200px; gap: 16px; color: var(--text-muted);">
-                    <div class="spinner" style="border-top-color: var(--color-accent); width: 32px; height: 32px; border-width: 4px;"></div>
-                    <span style="font-size: 0.85rem; font-weight: 500;">Iniciando diagnóstico estratégico...</span>
-                </div>
-            `;
-            
-            // 1. Cargar el borrador de Telegram e historial en paralelo
+        async function triggerAiInPanel(gid, taskName) {
+            const section = document.getElementById('aiRecommendationSection');
+            if (section) {
+                section.innerHTML = `
+                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 140px; gap: 12px; color: var(--text-muted); background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 6px;">
+                        <div class="spinner" style="border-top-color: var(--color-strategic); width: 24px; height: 24px; border-width: 3px;"></div>
+                        <span style="font-size: 0.8rem; font-weight: 500;">Generando diagnóstico con IA...</span>
+                    </div>
+                `;
+            }
+            await loadAiRecommendationsInPanel(gid, taskName);
+        }
+
+        async function loadAiRecommendationsInPanel(gid, taskName) {
             currentTelegramMessage = "";
             let tgHtml = `
                 <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; padding: 14px; border-radius: 8px; margin-bottom: 20px; display: flex; flex-direction: column; gap: 8px;">
@@ -1553,18 +1755,121 @@
                 if (!res.ok) throw new Error("No se pudo obtener el análisis del servidor");
                 const data = await res.json();
                 
-                body.innerHTML = tgHtml + parseMarkdownToHTML(data.insight);
+                const section = document.getElementById('aiRecommendationSection');
+                if (section) {
+                    section.innerHTML = tgHtml + parseMarkdownToHTML(data.insight);
+                }
                 
                 loadIntervencionesHistory(gid);
             } catch (err) {
                 console.error("Error al obtener insight:", err);
-                body.innerHTML = `
-                    <div style="color: var(--color-danger); padding: 20px; text-align: center; font-size: 0.85rem;">
-                        ❌ No se pudo cargar el análisis ejecutivo para este entregable.<br>
-                        <span style="font-size:0.75rem; color:var(--text-muted);">${err.message}</span>
+                const section = document.getElementById('aiRecommendationSection');
+                if (section) {
+                    section.innerHTML = `
+                        <div style="color: var(--color-danger); padding: 20px; text-align: center; font-size: 0.85rem;">
+                            ❌ No se pudo cargar el análisis ejecutivo para este entregable.<br>
+                            <span style="font-size:0.75rem; color:var(--text-muted);">${err.message}</span>
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        async function openInsightPanel(t, forceAiAnalysis = false) {
+            const panel = document.getElementById('insightPanel');
+            const title = document.getElementById('insightPanelTitle');
+            const body = document.getElementById('insightPanelBody');
+            
+            title.innerText = "Ficha de Entregable Estratégico";
+            panel.classList.add('active');
+
+            // Formatear fechas
+            const fechaCreacion = t.created_at ? new Date(t.created_at).toLocaleDateString('es-ES', {day: 'numeric', month: 'short', year: 'numeric'}) : 'No registrada';
+            const fechaVence = t.fecha_vencimiento ? new Date(t.fecha_vencimiento).toLocaleDateString('es-ES', {day: 'numeric', month: 'short', year: 'numeric'}) : 'Sin fecha';
+            
+            const scf = calcularCompletitudClientSide(t);
+            const estado = obtenerEstadoVencimiento(t);
+
+            // Calcular campos faltantes (sin etapa/avance, ahora con 4 campos mínimos)
+            const detalles = {
+                asignado: !!t.asignado,
+                fecha_vencimiento: !!t.fecha_vencimiento,
+                descripcion: !!(t.descripcion && t.descripcion.trim().length > 30),
+                evidencia: !!(t.fecha_ultimo_comentario || (t.comentarios_texto && t.comentarios_texto.trim().length > 10))
+            };
+            
+            let missing = [];
+            if (!detalles.asignado) missing.push("Responsable");
+            if (!detalles.fecha_vencimiento) missing.push("Vencimiento");
+            if (!detalles.descripcion) missing.push("Descripción (>30c)");
+            if (!detalles.evidencia) missing.push("Evidencia");
+
+            let missingHtml = "";
+            if (scf < 100) {
+                missingHtml = `
+                    <div style="font-size: 0.78rem; color: #b91c1c; background-color: #fef2f2; border: 1px dashed #fca5a5; padding: 10px; border-radius: 6px; margin-bottom: 12px; line-height: 1.4;">
+                        <strong style="display: block; margin-bottom: 4px;">⚠️ Ficha Incompleta (${scf}%):</strong>
+                        Falta registrar: ${missing.join(', ')}
+                    </div>
+                `;
+            } else {
+                missingHtml = `
+                    <div style="font-size: 0.78rem; color: var(--color-success); background-color: #ecfdf5; border: 1px dashed #a7f3d0; padding: 10px; border-radius: 6px; margin-bottom: 12px; font-weight: 600; line-height: 1.4;">
+                        🟢 Ficha de Cumplimiento Completa (100%)
                     </div>
                 `;
             }
+
+            const etapaAvance = (t.etapa || t.avance) ? `${t.etapa || ''} ${t.avance ? '(' + t.avance + ')' : ''}`.trim() : 'N/A';
+            let descText = t.descripcion ? t.descripcion.trim() : "<em>Sin descripción detallada registrada.</em>";
+
+            let detailsHtml = `
+                <div style="display: flex; flex-direction: column; gap: 12px; border-bottom: 1px solid #cbd5e1; padding-bottom: 16px; margin-bottom: 16px;">
+                    <h3 style="font-size: 1.05rem; font-weight: 800; color: var(--text-primary); line-height: 1.35; margin: 0; border: none; padding: 0;">
+                        ${t.nombre_tarea}
+                    </h3>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.78rem; color: var(--text-muted); background: #f8fafc; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                        <div>📁 Proyecto: <strong style="color: var(--text-primary);">${t.proyecto_origen || 'General'}</strong></div>
+                        <div>👥 Equipo: <strong style="color: var(--text-primary);">${t.equipo || 'Sin Equipo'}</strong></div>
+                        <div>📅 Creado: <strong style="color: var(--text-primary);">${fechaCreacion}</strong></div>
+                        <div>📅 Vence: <strong style="color: var(--text-primary);">${fechaVence}</strong></div>
+                        <div>👤 Responsable: <strong style="color: var(--text-primary);">${t.asignado || 'Sin Asignar'}</strong></div>
+                        <div>🔄 Sin mov: <strong style="color: var(--text-primary);">${t.dias_sin_movimiento}d</strong></div>
+                        <div style="grid-column: span 2;">📊 Etapa/Avance: <strong style="color: var(--text-primary);">${etapaAvance}</strong></div>
+                        <div style="grid-column: span 2;">📌 Estatus: <span class="badge ${estado.cssClass}" style="font-size:0.7rem; padding: 2px 6px; font-weight:600;">${estado.text}</span></div>
+                    </div>
+
+                    ${missingHtml}
+
+                    <div style="font-size: 0.8rem; background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 6px; max-height: 200px; overflow-y: auto;">
+                        <strong style="display: block; margin-bottom: 6px; color: var(--bg-sidebar); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em;">Descripción:</strong>
+                        <p style="white-space: pre-wrap; margin: 0; line-height: 1.45; color: var(--text-primary);">${descText}</p>
+                    </div>
+                </div>
+            `;
+
+            if (!forceAiAnalysis) {
+                body.innerHTML = detailsHtml + `
+                    <div id="aiRecommendationSection" style="margin-top: 16px;">
+                        <button id="btnTriggerAiInPanel" class="btn-sidebar btn-report" style="width: 100%; margin: 0; font-weight: bold; font-size: 0.8rem; padding: 10px 16px;" onclick="triggerAiInPanel('${t.gid_tarea}', '${t.nombre_tarea.replace(/'/g, "\\'")}')">
+                            💡 Generar Recomendación con IA
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+
+            body.innerHTML = detailsHtml + `
+                <div id="aiRecommendationSection">
+                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 140px; gap: 12px; color: var(--text-muted); background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 6px;">
+                        <div class="spinner" style="border-top-color: var(--color-strategic); width: 24px; height: 24px; border-width: 3px;"></div>
+                        <span style="font-size: 0.8rem; font-weight: 500;">Generando diagnóstico con IA...</span>
+                    </div>
+                </div>
+            `;
+
+            await loadAiRecommendationsInPanel(t.gid_tarea, t.nombre_tarea);
         }
 
         function closeInsightPanel() {
