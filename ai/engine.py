@@ -424,3 +424,56 @@ def generar_insight_tarea(t: dict) -> str:
     except Exception as e:
         print(f"Error en generar_insight_tarea: {str(e)}")
         return f"❌ **Error al generar el análisis de la tarea estratégica:** {str(e)}"
+
+def generar_mensaje_telegram(t: dict) -> str:
+    """
+    Genera un borrador de mensaje de Telegram directo, asertivo y personalizado
+    para que el Titular pueda enviarle de un clic al responsable del entregable.
+    """
+    if not is_ai_configured:
+        responsable = t.get("asignado") or "[Responsable]"
+        nombre = t.get("nombre_tarea") or "[Nombre Tarea]"
+        vence = t.get("fecha_vencimiento") or "[Fecha]"
+        dias = t.get("dias_sin_movimiento") or 0
+        return (
+            f"Hola {responsable}, detecto en el sistema que el entregable estratégico \"{nombre}\" "
+            f"vence el {vence} y no registra movimientos desde hace {dias} días. "
+            f"Requiero me informes a la brevedad cuál es el bloqueo técnico y tu fecha de compromiso definitiva."
+        )
+
+    desc = t.get("descripcion") or "No especificada"
+    ultimos_comentarios = obtener_ultimos_comentarios(t.get("comentarios_texto"), n=2)
+    
+    prompt = (
+        "Actúa como un Redactor de Mensajería Ejecutiva Directa para el Director General.\n"
+        "Debes redactar un único mensaje de chat (Telegram o WhatsApp) sumamente directo, asertivo y personalizado "
+        "para que el Director General se lo envíe al responsable de una tarea estratégica (EE) en riesgo.\n\n"
+        "DATOS DE LA TAREA:\n"
+        f"- Nombre de la Tarea: {t.get('nombre_tarea')}\n"
+        f"- Responsable Asignado: {t.get('asignado') or 'Sin Asignar'}\n"
+        f"- Estado de Entrega: {'Vencida (Atrasada)' if t.get('atrasada') else 'En Plazo'}\n"
+        f"- Fecha de Vencimiento: {t.get('fecha_vencimiento') or 'No especificada'}\n"
+        f"- Avance: {t.get('avance') or '0.0%'}\n"
+        f"- Días Sin Movimiento: {t.get('dias_sin_movimiento')} días\n"
+        f"- Descripción: {desc}\n"
+        f"- Último Comentario: {ultimos_comentarios}\n\n"
+        "REGLAS DE REDACCIÓN:\n"
+        "1. Redacta el mensaje en primera persona del singular (como el Director General, el Jefe, ej. 'Hola César, he estado revisando los entregables y veo que...').\n"
+        "2. El mensaje debe ser EXTREMADAMENTE corto (máximo 3 o 4 líneas, unas 60-80 palabras). Al Jefe no le gusta enviar textos largos por chat.\n"
+        "3. Sé asertivo e impecablemente cortés pero firme. Solicita de forma clara e inmediata:\n"
+        "   - Cuál es el bloqueo o motivo del atraso.\n"
+        "   - Una nueva fecha de compromiso real o confirmación de la actual.\n"
+        "4. Incluye el nombre de la tarea estratégica (EE) entre comillas.\n"
+        "5. NUNCA agregues saludos genéricos del tipo '[Aquí tienes el mensaje]', explicaciones, preámbulos, ni despedidas. "
+        "El resultado final debe ser ÚNICAMENTE el texto literal del mensaje listo para copiar e ir directo al chat."
+    )
+    
+    try:
+        model = genai.GenerativeModel(model_name=MODEL_NAME)
+        response = model.generate_content(prompt)
+        return response.text.strip()
+    except Exception as e:
+        print(f"Error en generar_mensaje_telegram: {str(e)}")
+        responsable = t.get("asignado") or "[Responsable]"
+        nombre = t.get("nombre_tarea") or "[Nombre Tarea]"
+        return f"Hola {responsable}, requiero de tu apoyo urgente para actualizar el estatus y destrabar el entregable \"{nombre}\". Quedo atento a tus comentarios hoy mismo."

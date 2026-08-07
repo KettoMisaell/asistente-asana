@@ -236,3 +236,219 @@ def get_all_teams():
     teams = [row[0] for row in cursor.fetchall() if row[0]]
     conn.close()
     return sorted(teams)
+
+# =====================================================================
+# NUEVAS FUNCIONES DE APOYO PARA KRs E INTERVENCIONES
+# =====================================================================
+
+def registrar_intervencion(gid_tarea, canal, mensaje_enviado):
+    """Inserta un nuevo registro de intervención para una tarea."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO intervenciones (gid_tarea, canal, mensaje_enviado)
+        VALUES (?, ?, ?)
+    """, (gid_tarea, canal, mensaje_enviado))
+    conn.commit()
+    conn.close()
+    return True
+
+def obtener_intervenciones_tarea(gid_tarea):
+    """Obtiene el historial de intervenciones de una tarea."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT * FROM intervenciones 
+        WHERE gid_tarea = ? 
+        ORDER BY fecha_intervencion DESC
+    """, (gid_tarea,))
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+def calcular_completitud_tarea(t):
+    """Calcula el Score de Completitud de Ficha (SCF) de 0 a 100."""
+    detalles = {
+        "asignado": bool(t.get("asignado")),
+        "fecha_vencimiento": bool(t.get("fecha_vencimiento")),
+        "descripcion": bool(t.get("descripcion") and len(t.get("descripcion").strip()) > 30),
+        "etapa": bool(t.get("etapa") or t.get("avance")),
+        "evidencia": bool(t.get("fecha_ultimo_comentario") or (t.get("comentarios_texto") and len(t.get("comentarios_texto").strip()) > 10))
+    }
+    score = 0
+    score += 20 if detalles["asignado"] else 0
+    score += 20 if detalles["fecha_vencimiento"] else 0
+    score += 20 if detalles["descripcion"] else 0
+    score += 20 if detalles["etapa"] else 0
+    score += 20 if detalles["evidencia"] else 0
+    return score, detalles
+
+def obtener_riesgo_tarea(t, scf=None):
+    """Calcula la categoría de riesgo ponderado (IRP) de una tarea: 'Crítico', 'Medio', 'En Plazo'."""
+    if t.get("completada") == 1:
+        return "En Plazo"
+        
+    avance_num = 0
+    avance_str = t.get("avance") or "0"
+    try:
+        avance_num = int(''.join(filter(str.isdigit, avance_str))) if any(c.isdigit() for c in avance_str) else 0
+    except ValueError:
+        pass
+        
+    # Crítico: vencida (atrasada) O con inactividad extrema (>= 14 días) y avance < 90%
+    if t.get("atrasada") == 1:
+        return "Crítico"
+    if (t.get("dias_sin_movimiento") or 0) >= 14 and avance_num < 90:
+        return "Crítico"
+        
+    # Medio: dias_sin_movimiento >= 7 OR SCF < 80%
+    if scf is None:
+        scf, _ = calcular_completitud_tarea(t)
+    if (t.get("dias_sin_movimiento") or 0) >= 7 or scf < 80:
+        return "Medio"
+        
+    return "En Plazo"
+
+def get_weekly_update_metrics_by_team():
+    """Calcula para cada equipo si cumple con el mínimo de 3 EEs actualizados semanalmente."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Obtener todas las tareas estratégicas activas
+    cursor.execute("""
+        SELECT * FROM tareas 
+        WHERE (nombre_tarea LIKE 'EE %' OR nombre_tarea LIKE '% EE %' OR etapa LIKE '%Crítica%')
+        AND completada = 0
+    """)
+    tareas = [dict(r) for r in cursor.fetchall()]
+    conn.close()
+    
+    # Agrupar por equipo
+    equipos_data = {}
+    for t in tareas:
+        equipo = t.get("equipo") or "Sin Equipo"
+        if equipo not in equipos_data:
+            equipos_data[equipo] = {
+                "ee_totales_pendientes": 0,
+                "ee_actualizados_esta_semana": 0
+            }
+        
+        equipos_data[equipo]["ee_totales_pendientes"] += 1
+        # Se considera actualizado si tiene actividad en los últimos 7 días
+        if (t.get("dias_sin_movimiento") or 0) <= 7:
+            equipos_data[equipo]["ee_actualizados_esta_semana"] += 1
+            
+    # Formatear reporte de equipos y calcular cumplimiento
+    equipos_list = []
+    equipos_cumplen = 0
+    
+    for equipo, data in equipos_data.items():
+        cumple = data["ee_actualizados_esta_semana"] >= 3
+        if cumple:
+            equipos_cumplen += 1
+        equipos_list.append({
+            "equipo": equipo,
+            "ee_totales_pendientes": data["ee_totales_pendientes"],
+            "ee_actualizados_esta_semana": data["ee_actualizados_esta_semana"],
+            "cumple_minimo_3": cumple
+        })
+        
+    total_equipos = len(equipos_list)
+    porcentaje_cumplimiento = (equipos_cumplen / total_equipos * 100) if total_equipos > 0 else 100.0
+    
+    return {
+        "porcentaje_cumplimiento": round(porcentaje_cumplimiento, 1),
+        "equipos_cumplen": equipos_cumplen,
+        "total_equipos": total_equipos,
+        "equipos_detalle": sorted(equipos_list, key=lambda x: x["equipo"])
+    }
+
+def get_kr_dashboard_metrics(team=None):
+    """Calcula y consolida las métricas específicas de los KRs de seguimiento ejecutivo."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    where_clause = ""
+    params = []
+    if team:
+        where_clause = "AND normalize(equipo) LIKE ?"
+        params.append(f"%{normalizar_texto(team)}%")
+        
+    # 1. Obtener todas las tareas estratégicas activas de este equipo/organización
+    query = f"""
+        SELECT * FROM tareas 
+        WHERE (nombre_tarea LIKE 'EE %' OR nombre_tarea LIKE '% EE %' OR etapa LIKE '%Crítica%')
+        AND completada = 0 {where_clause}
+    """
+    cursor.execute(query, params)
+    tareas_activas = [dict(r) for r in cursor.fetchall()]
+    
+    # 2. Obtener todas las intervenciones de la semana actual (últimos 7 días)
+    cursor.execute("""
+        SELECT gid_tarea, COUNT(*) as qty 
+        FROM intervenciones 
+        WHERE datetime(fecha_intervencion) >= datetime('now', '-7 days')
+        GROUP BY gid_tarea
+    """)
+    intervenciones_recientes = {row["gid_tarea"]: row["qty"] for row in cursor.fetchall()}
+    
+    # 3. Calcular métricas por tarea
+    total_ee = len(tareas_activas)
+    completitud_acumulada = 0
+    tareas_riesgo = 0
+    tareas_riesgo_intervenidas = 0
+    
+    distribucion_riesgo = {"Crítico": 0, "Medio": 0, "En Plazo": 0}
+    
+    for t in tareas_activas:
+        scf, _ = calcular_completitud_tarea(t)
+        completitud_acumulada += scf
+        
+        riesgo = obtener_riesgo_tarea(t, scf)
+        distribucion_riesgo[riesgo] += 1
+        
+        if riesgo in ["Crítico", "Medio"]:
+            tareas_riesgo += 1
+            if t["gid_tarea"] in intervenciones_recientes:
+                tareas_riesgo_intervenidas += 1
+                
+    # 4. Calcular métricas concluidas sin reprogramaciones en los últimos 3 meses
+    # (KR principal: de 10% a 50%)
+    query_concluidas = f"""
+        SELECT COUNT(*) as concluidas_total,
+               SUM(CASE WHEN reprogramada = 0 THEN 1 ELSE 0 END) as sin_reprogramar
+        FROM tareas
+        WHERE completada = 1 
+        AND datetime(fecha_completada) >= datetime('now', '-90 days')
+        {where_clause}
+    """
+    cursor.execute(query_concluidas, params)
+    res_concluidas = cursor.fetchone()
+    concluidas_total = res_concluidas["concluidas_total"] or 0
+    sin_reprogramar = res_concluidas["sin_reprogramar"] or 0
+    
+    porcentaje_ee_a_tiempo = (sin_reprogramar / concluidas_total * 100) if concluidas_total > 0 else 0.0
+    
+    conn.close()
+    
+    # Tasa de completitud promedio
+    scf_promedio = (completitud_acumulada / total_ee) if total_ee > 0 else 100.0
+    
+    # Tasa de intervención en riesgo
+    tasa_intervencion = (tareas_riesgo_intervenidas / tareas_riesgo * 100) if tareas_riesgo > 0 else 100.0
+    
+    # Obtener el cumplimiento semanal de equipos (Iniciativa 1)
+    metrica_equipos = get_weekly_update_metrics_by_team()
+    
+    return {
+        "iniciativa_1_equipos_compliance": metrica_equipos["porcentaje_cumplimiento"] if not team else (100.0 if (metrica_equipos["porcentaje_cumplimiento"] > 0) else 0.0),
+        "iniciativa_1_equipos_detalle": metrica_equipos["equipos_detalle"],
+        "iniciativa_2_completeness_score": round(scf_promedio, 1),
+        "iniciativa_3_distribucion_riesgo": distribucion_riesgo,
+        "iniciativa_3_total_riesgos": tareas_riesgo,
+        "iniciativa_4_tasa_intervencion": round(tasa_intervencion, 1),
+        "iniciativa_4_riesgos_intervenidos": tareas_riesgo_intervenidas,
+        "kr_principal_ee_concluidos_total": concluidas_total,
+        "kr_principal_ee_concluidos_sin_repro": sin_reprogramar,
+        "kr_principal_porcentaje_a_tiempo": round(porcentaje_ee_a_tiempo, 1)
+    }

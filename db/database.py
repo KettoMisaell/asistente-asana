@@ -92,8 +92,21 @@ def init_db():
             last_sync_time TEXT
         )
     """)
+
+    # Crear tabla de intervenciones de tareas en riesgo
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS intervenciones (
+            id_intervencion INTEGER PRIMARY KEY AUTOINCREMENT,
+            gid_tarea TEXT,
+            canal TEXT,
+            mensaje_enviado TEXT,
+            fecha_intervencion DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(gid_tarea) REFERENCES tareas(gid_tarea)
+        )
+    """)
     
     # Crear índices para acelerar búsquedas deterministas de la IA
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_intervenciones_gid_tarea ON intervenciones(gid_tarea)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_tareas_equipo ON tareas(equipo)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_tareas_asignado ON tareas(asignado)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_tareas_completada ON tareas(completada)")

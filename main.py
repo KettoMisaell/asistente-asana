@@ -12,10 +12,13 @@ from db.queries import (
     get_strategic_tasks,
     search_tasks_by_term,
     get_task_by_gid,
-    get_all_teams
+    get_all_teams,
+    registrar_intervencion,
+    obtener_intervenciones_tarea,
+    get_kr_dashboard_metrics
 )
 from etl.asana_extractor import run_etl
-from ai.engine import ejecutar_consulta_chat, generar_reporte_semanal, generar_insight_tarea
+from ai.engine import ejecutar_consulta_chat, generar_reporte_semanal, generar_insight_tarea, generar_mensaje_telegram
 
 load_dotenv()
 
@@ -113,6 +116,35 @@ def api_task_insight(gid: str):
 def api_teams():
     """Retorna la lista de equipos reales existentes en la base de datos."""
     return get_all_teams()
+
+@app.get("/api/kr-metrics")
+def api_kr_metrics(team: str = Query(None, description="Filtrar métricas de KR por equipo")):
+    """Retorna las métricas ejecutivas asociadas a los KRs y metas de seguimiento."""
+    return get_kr_dashboard_metrics(team)
+
+@app.post("/api/tasks/{gid}/intervene")
+def api_intervene(gid: str, payload: dict):
+    """Registra una intervención sobre una tarea estratégica en riesgo."""
+    canal = payload.get("canal", "Telegram")
+    mensaje = payload.get("mensaje", "")
+    success = registrar_intervencion(gid, canal, mensaje)
+    if not success:
+        raise HTTPException(status_code=500, detail="No se pudo registrar la intervención.")
+    return {"status": "success", "message": "Intervención registrada correctamente."}
+
+@app.get("/api/tasks/{gid}/telegram-message")
+def api_telegram_message(gid: str):
+    """Genera el mensaje asertivo y personalizado de Telegram usando IA para el Titular."""
+    tarea = get_task_by_gid(gid)
+    if not tarea:
+        raise HTTPException(status_code=404, detail="Tarea estratégica no encontrada.")
+    mensaje = generar_mensaje_telegram(tarea)
+    return {"mensaje": mensaje}
+
+@app.get("/api/tasks/{gid}/intervenciones")
+def api_get_intervenciones(gid: str):
+    """Retorna el historial de intervenciones registradas para una tarea."""
+    return obtener_intervenciones_tarea(gid)
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))
