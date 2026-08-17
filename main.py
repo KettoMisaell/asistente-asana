@@ -13,6 +13,7 @@ from db.queries import (
     search_tasks_by_term,
     get_task_by_gid,
     get_all_teams,
+    get_teams_ee_summary,
     registrar_intervencion,
     obtener_intervenciones_tarea,
     get_kr_dashboard_metrics
@@ -120,6 +121,11 @@ def api_task_insight(gid: str):
 def api_teams():
     """Retorna la lista de equipos reales existentes en la base de datos."""
     return get_all_teams()
+
+@app.get("/api/teams/ee-summary")
+def api_teams_ee_summary():
+    """Retorna un resumen ejecutivo de entregables estratégicos (EE) por equipo, incluyendo vacíos."""
+    return get_teams_ee_summary()
 
 @app.get("/api/kr-metrics")
 def api_kr_metrics(team: str = Query(None, description="Filtrar métricas de KR por equipo")):

@@ -162,6 +162,20 @@ def save_project_last_sync(project_gid, sync_time):
     conn.commit()
     conn.close()
 
+def save_team_to_db(team_gid, nombre_equipo):
+    """Guarda o actualiza un equipo en la base de datos local."""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO equipos (gid_equipo, nombre_equipo, last_sync_time)
+        VALUES (?, ?, ?)
+        ON CONFLICT(gid_equipo) DO UPDATE SET 
+            nombre_equipo=excluded.nombre_equipo, 
+            last_sync_time=excluded.last_sync_time
+    """, (team_gid, nombre_equipo, datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")))
+    conn.commit()
+    conn.close()
+
 def delete_orphaned_projects_and_tasks(active_project_gids, active_team_gids):
     """
     Elimina los proyectos y tareas huérfanas en la base de datos local que ya no existen
@@ -216,7 +230,7 @@ def delete_removed_tasks_from_project(project_gid, current_task_gids):
 
 def get_project_task_gids(project_gid, headers):
     """
-    Obtiene rápidamente una lista de todos los GIDs de tareas activas de un proyecto.
+    Obtiene rápidamente una lista de todos los GIDs de tareas de un proyecto (tanto activas como completadas).
     Esta petición es ultraligera ya que solo pide el campo 'gid'.
     """
     gids = []
@@ -225,7 +239,8 @@ def get_project_task_gids(project_gid, headers):
         url = f"https://app.asana.com/api/1.0/projects/{project_gid}/tasks"
         params = {
             "limit": 100,
-            "opt_fields": "gid"
+            "opt_fields": "gid",
+            "completed_since": "2012-01-01T00:00:00Z"
         }
         if offset:
             params["offset"] = offset
@@ -265,6 +280,8 @@ def get_tasks_by_teams(team_gids, headers, include_comments=True):
         nombre_equipo = None
         if team_response and team_response.status_code == 200:
             nombre_equipo = team_response.json().get("data", {}).get("name")
+            if nombre_equipo:
+                save_team_to_db(team_gid, nombre_equipo)
             
         proyectos = get_team_projects(team_gid, headers)
         
@@ -286,6 +303,7 @@ def get_tasks_by_teams(team_gids, headers, include_comments=True):
                 url = f"https://app.asana.com/api/1.0/projects/{project_gid}/tasks"
                 params = {
                     "limit": 100,
+                    "completed_since": "2012-01-01T00:00:00Z",
                     "opt_fields": ",".join([
                         "gid",
                         "name",

@@ -735,6 +735,41 @@
                 </div>
             </div>
 
+            <!-- MONITOREO EJECUTIVO POR EQUIPOS (ALCANCE GENERAL) -->
+            <div class="table-card" style="min-height: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: var(--border-radius); box-shadow: var(--shadow-sm); background-color: var(--bg-surface); margin-bottom: 24px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; flex-wrap: wrap; gap: 10px;">
+                    <div>
+                        <h2 style="font-size: 1.1rem; font-weight: 700; color: var(--bg-sidebar); display: flex; align-items: center; gap: 8px; margin: 0;">
+                            👥 Monitoreo Ejecutivo por Equipos (Alcance General)
+                        </h2>
+                        <p style="font-size: 0.8rem; color: var(--text-muted); margin: 4px 0 0 0;">
+                            Sincronización real con Asana (incluye equipos sin tareas cargadas aún). Haga clic en cualquier equipo para filtrar.
+                        </p>
+                    </div>
+                </div>
+                
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
+                        <thead>
+                            <tr style="border-bottom: 2px solid #cbd5e1; color: var(--text-muted); font-weight: 600;">
+                                <th style="padding: 10px 8px;">Equipo</th>
+                                <th style="padding: 10px 8px; text-align: center;">EEs Totales</th>
+                                <th style="padding: 10px 8px; text-align: center;">EEs Activos</th>
+                                <th style="padding: 10px 8px; text-align: center;">EEs En Plazo</th>
+                                <th style="padding: 10px 8px; text-align: center;">EEs Vencidos</th>
+                                <th style="padding: 10px 8px; text-align: center;">Actualizados esta Semana</th>
+                                <th style="padding: 10px 8px; text-align: center;">Estado Operativo</th>
+                            </tr>
+                        </thead>
+                        <tbody id="teamsSummaryBody">
+                            <tr>
+                                <td colspan="7" style="text-align: center; padding: 20px; color: var(--text-muted);">Cargando resumen de equipos...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
             <!-- TABLERO DE CONTROL DE METAS Y KRs (ESTRATEGIA) -->
             <div class="table-card" style="min-height: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: var(--border-radius); box-shadow: var(--shadow-sm); background: linear-gradient(to right, #faf5ff, #ffffff);">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">
@@ -1251,8 +1286,70 @@
             }
         }
 
+        async function loadTeamsSummaryData() {
+            const tbody = document.getElementById('teamsSummaryBody');
+            if (!tbody) return;
+
+            try {
+                const res = await fetch('/api/teams/ee-summary');
+                if (!res.ok) throw new Error('Error al obtener el resumen de equipos');
+                const data = await res.json();
+
+                tbody.innerHTML = '';
+                if (data.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 20px; color: var(--text-muted);">No se encontraron equipos configurados.</td></tr>`;
+                    return;
+                }
+
+                data.forEach(item => {
+                    const tr = document.createElement('tr');
+                    tr.style.borderBottom = '1px solid #f1f5f9';
+                    tr.style.transition = 'background-color 0.15s ease-in-out';
+                    tr.style.cursor = 'pointer';
+                    
+                    tr.onmouseover = () => tr.style.backgroundColor = '#f8fafc';
+                    tr.onmouseout = () => tr.style.backgroundColor = 'transparent';
+
+                    // Determinar insignia del estado operativo
+                    let badge = '';
+                    if (item.ee_totales === 0) {
+                        badge = `<span style="background-color: #f1f5f9; color: #64748b; padding: 4px 10px; border-radius: 12px; font-size: 0.72rem; font-weight: 700; border: 1px solid #cbd5e1; display: inline-block;">Sin Entregables</span>`;
+                    } else if (item.ee_vencidos > 0) {
+                        badge = `<span style="background-color: #fee2e2; color: #b91c1c; padding: 4px 10px; border-radius: 12px; font-size: 0.72rem; font-weight: 700; border: 1px solid #fca5a5; display: inline-block;">⚠️ Con Retraso</span>`;
+                    } else {
+                        badge = `<span style="background-color: #f0fdf4; color: #166534; padding: 4px 10px; border-radius: 12px; font-size: 0.72rem; font-weight: 700; border: 1px solid #bbf7d0; display: inline-block;">🟢 Al Día</span>`;
+                    }
+
+                    tr.onclick = () => {
+                        const teamSelect = document.getElementById('teamFilter');
+                        if (teamSelect) {
+                            teamSelect.value = item.nombre_equipo;
+                            loadDashboardData();
+                        }
+                    };
+
+                    tr.innerHTML = `
+                        <td style="padding: 12px 8px; font-weight: 600; color: var(--color-accent); text-decoration: underline;">${item.nombre_equipo}</td>
+                        <td style="padding: 12px 8px; text-align: center; font-weight: 500;">${item.ee_totales}</td>
+                        <td style="padding: 12px 8px; text-align: center; font-weight: 500; color: var(--color-strategic);">${item.ee_activos}</td>
+                        <td style="padding: 12px 8px; text-align: center; font-weight: 500; color: var(--color-success);">${item.ee_en_plazo}</td>
+                        <td style="padding: 12px 8px; text-align: center; font-weight: 600; color: ${item.ee_vencidos > 0 ? 'var(--color-danger)' : 'var(--text-muted)'};">${item.ee_vencidos}</td>
+                        <td style="padding: 12px 8px; text-align: center; font-weight: 500; color: var(--color-accent);">${item.ee_actualizados_semana}</td>
+                        <td style="padding: 12px 8px; text-align: center;">${badge}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (err) {
+                console.error("Error al cargar resumen de equipos:", err);
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 20px; color: var(--color-danger);">Error al cargar los datos del resumen de equipos.</td></tr>`;
+            }
+        }
+
         async function loadDashboardData() {
             const team = teamFilterElement.value;
+            
+            // Cargar resumen de todos los equipos en paralelo
+            loadTeamsSummaryData();
             
             // 1. Cargar Métricas y Salud General de la Operación
             let queryUrl = `/api/metrics`;

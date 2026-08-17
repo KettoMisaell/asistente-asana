@@ -104,6 +104,15 @@ def init_db():
             FOREIGN KEY(gid_tarea) REFERENCES tareas(gid_tarea)
         )
     """)
+
+    # Crear tabla de equipos configurados
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS equipos (
+            gid_equipo TEXT PRIMARY KEY,
+            nombre_equipo TEXT,
+            last_sync_time TEXT
+        )
+    """)
     
     # Crear índices para acelerar búsquedas deterministas de la IA
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_intervenciones_gid_tarea ON intervenciones(gid_tarea)")
@@ -113,6 +122,17 @@ def init_db():
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_tareas_fecha_vencimiento ON tareas(fecha_vencimiento)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_tareas_gid_proyecto ON tareas(gid_proyecto)")
     
+    # Insertar equipos semilla si la tabla está vacía
+    cursor.execute("SELECT COUNT(*) FROM equipos")
+    if cursor.fetchone()[0] == 0:
+        seed_teams = [
+            ('1213716338728426', 'Acceso a internet'),
+            ('1213716338728417', 'Confianza Ciudadana'),
+            ('1213716338728432', 'Infraestructura digital'),
+            ('1213716338728439', 'Trabajo predecible')
+        ]
+        cursor.executemany("INSERT INTO equipos (gid_equipo, nombre_equipo) VALUES (?, ?)", seed_teams)
+        
     conn.commit()
     conn.close()
     print(f"Base de datos inicializada en {DB_PATH}")

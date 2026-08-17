@@ -237,6 +237,40 @@ def get_all_teams():
     conn.close()
     return sorted(teams)
 
+def get_teams_ee_summary():
+    """Calcula y retorna un resumen ejecutivo de entregables estratégicos (EE) por equipo, incluyendo vacíos."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    query = """
+        SELECT 
+            e.gid_equipo,
+            e.nombre_equipo,
+            COUNT(t.gid_tarea) AS ee_totales,
+            SUM(CASE WHEN t.completada = 0 THEN 1 ELSE 0 END) AS ee_activos,
+            SUM(CASE WHEN t.completada = 0 AND t.atrasada = 0 THEN 1 ELSE 0 END) AS ee_en_plazo,
+            SUM(CASE WHEN t.completada = 0 AND t.atrasada = 1 THEN 1 ELSE 0 END) AS ee_vencidos,
+            SUM(CASE WHEN t.dias_sin_movimiento <= 7 THEN 1 ELSE 0 END) AS ee_actualizados_semana
+        FROM equipos e
+        LEFT JOIN tareas t ON e.gid_equipo = t.gid_equipo 
+            AND (t.nombre_tarea LIKE 'EE %' OR t.nombre_tarea LIKE '% EE %')
+        GROUP BY e.gid_equipo, e.nombre_equipo
+        ORDER BY e.nombre_equipo ASC
+    """
+    
+    cursor.execute(query)
+    rows = cursor.fetchall()
+    conn.close()
+    
+    result = []
+    for row in rows:
+        item = dict(row)
+        for key in ['ee_totales', 'ee_activos', 'ee_en_plazo', 'ee_vencidos', 'ee_actualizados_semana']:
+            item[key] = item[key] or 0
+        result.append(item)
+        
+    return result
+
 # =====================================================================
 # NUEVAS FUNCIONES DE APOYO PARA KRs E INTERVENCIONES
 # =====================================================================
