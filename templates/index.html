@@ -757,13 +757,15 @@
                                 <th style="padding: 10px 8px; text-align: center;">EEs Activos</th>
                                 <th style="padding: 10px 8px; text-align: center;">EEs En Plazo</th>
                                 <th style="padding: 10px 8px; text-align: center;">EEs Vencidos</th>
+                                <th style="padding: 10px 8px; text-align: center;">EEs Completados</th>
+                                <th style="padding: 10px 8px; text-align: center;">Activos Sin Ficha Completa</th>
                                 <th style="padding: 10px 8px; text-align: center;">Actualizados esta Semana</th>
                                 <th style="padding: 10px 8px; text-align: center;">Estado Operativo</th>
                             </tr>
                         </thead>
                         <tbody id="teamsSummaryBody">
                             <tr>
-                                <td colspan="7" style="text-align: center; padding: 20px; color: var(--text-muted);">Cargando resumen de equipos...</td>
+                                <td colspan="9" style="text-align: center; padding: 20px; color: var(--text-muted);">Cargando resumen de equipos...</td>
                             </tr>
                         </tbody>
                     </table>
@@ -1141,7 +1143,8 @@
                 if (krPrincipalVal) {
                     krPrincipalVal.innerText = `${data.kr_principal_porcentaje_a_tiempo}%`;
                     krPrincipalProgress.style.width = `${Math.min(data.kr_principal_porcentaje_a_tiempo, 100)}%`;
-                    krPrincipalDetails.innerText = `${data.kr_principal_ee_concluidos_sin_repro} de ${data.kr_principal_ee_concluidos_total} concluidos sin reprogramar`;
+                    const totalEsperados = data.kr_principal_ee_concluidos_total + (data.kr_principal_ee_vencidos_activos || 0);
+                    krPrincipalDetails.innerText = `${data.kr_principal_ee_concluidos_sin_repro} de ${totalEsperados} a tiempo sin reprogramar`;
                 }
                 
                 // 2. Iniciativa 1 (Equipos)
@@ -1297,7 +1300,7 @@
 
                 tbody.innerHTML = '';
                 if (data.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 20px; color: var(--text-muted);">No se encontraron equipos configurados.</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 20px; color: var(--text-muted);">No se encontraron equipos configurados.</td></tr>`;
                     return;
                 }
 
@@ -1328,12 +1331,18 @@
                         }
                     };
 
+                    const sinFichaText = item.ee_activos_sin_ficha > 0 
+                        ? `<span style="color: var(--color-danger); font-weight: 600;">⚠️ ${item.ee_activos_sin_ficha}</span>` 
+                        : `<span style="color: var(--color-success); font-weight: 500;">0</span>`;
+
                     tr.innerHTML = `
                         <td style="padding: 12px 8px; font-weight: 600; color: var(--color-accent); text-decoration: underline;">${item.nombre_equipo}</td>
                         <td style="padding: 12px 8px; text-align: center; font-weight: 500;">${item.ee_totales}</td>
                         <td style="padding: 12px 8px; text-align: center; font-weight: 500; color: var(--color-strategic);">${item.ee_activos}</td>
                         <td style="padding: 12px 8px; text-align: center; font-weight: 500; color: var(--color-success);">${item.ee_en_plazo}</td>
                         <td style="padding: 12px 8px; text-align: center; font-weight: 600; color: ${item.ee_vencidos > 0 ? 'var(--color-danger)' : 'var(--text-muted)'};">${item.ee_vencidos}</td>
+                        <td style="padding: 12px 8px; text-align: center; font-weight: 500; color: var(--color-success);">${item.ee_completados}</td>
+                        <td style="padding: 12px 8px; text-align: center; font-weight: 500;">${sinFichaText}</td>
                         <td style="padding: 12px 8px; text-align: center; font-weight: 500; color: var(--color-accent);">${item.ee_actualizados_semana}</td>
                         <td style="padding: 12px 8px; text-align: center;">${badge}</td>
                     `;
@@ -1341,7 +1350,7 @@
                 });
             } catch (err) {
                 console.error("Error al cargar resumen de equipos:", err);
-                tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 20px; color: var(--color-danger);">Error al cargar los datos del resumen de equipos.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 20px; color: var(--color-danger);">Error al cargar los datos del resumen de equipos.</td></tr>`;
             }
         }
 

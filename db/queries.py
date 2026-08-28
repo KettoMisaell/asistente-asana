@@ -242,34 +242,64 @@ def get_teams_ee_summary():
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    query = """
-        SELECT 
-            e.gid_equipo,
-            e.nombre_equipo,
-            COUNT(t.gid_tarea) AS ee_totales,
-            SUM(CASE WHEN t.completada = 0 THEN 1 ELSE 0 END) AS ee_activos,
-            SUM(CASE WHEN t.completada = 0 AND t.atrasada = 0 THEN 1 ELSE 0 END) AS ee_en_plazo,
-            SUM(CASE WHEN t.completada = 0 AND t.atrasada = 1 THEN 1 ELSE 0 END) AS ee_vencidos,
-            SUM(CASE WHEN t.dias_sin_movimiento <= 7 THEN 1 ELSE 0 END) AS ee_actualizados_semana
-        FROM equipos e
-        LEFT JOIN tareas t ON e.gid_equipo = t.gid_equipo 
-            AND (t.nombre_tarea LIKE 'EE %' OR t.nombre_tarea LIKE '% EE %')
-        GROUP BY e.gid_equipo, e.nombre_equipo
-        ORDER BY e.nombre_equipo ASC
-    """
+    # Obtener todos los equipos configurados
+    cursor.execute("SELECT gid_equipo, nombre_equipo FROM equipos")
+    teams_list = [dict(row) for row in cursor.fetchall()]
     
-    cursor.execute(query)
-    rows = cursor.fetchall()
+    # Obtener todas las tareas de entregables estratégicos
+    cursor.execute("""
+        SELECT * FROM tareas 
+        WHERE (nombre_tarea LIKE 'EE %' OR nombre_tarea LIKE '% EE %')
+    """)
+    tareas = [dict(row) for row in cursor.fetchall()]
     conn.close()
     
+    # Agrupar tareas por gid_equipo
+    tareas_por_equipo = {}
+    for t in tareas:
+        gid_eq = t.get("gid_equipo")
+        if gid_eq:
+            if gid_eq not in tareas_por_equipo:
+                tareas_por_equipo[gid_eq] = []
+            tareas_por_equipo[gid_eq].append(t)
+            
     result = []
-    for row in rows:
-        item = dict(row)
-        for key in ['ee_totales', 'ee_activos', 'ee_en_plazo', 'ee_vencidos', 'ee_actualizados_semana']:
-            item[key] = item[key] or 0
-        result.append(item)
+    for team in teams_list:
+        gid_eq = team["gid_equipo"]
+        team_tareas = tareas_por_equipo.get(gid_eq, [])
         
-    return result
+        ee_totales = len(team_tareas)
+        ee_activos = sum(1 for t in team_tareas if t.get("completada") == 0)
+        ee_en_plazo = sum(1 for t in team_tareas if t.get("completada") == 0 and t.get("atrasada") == 0)
+        ee_vencidos = sum(1 for t in team_tareas if t.get("completada") == 0 and t.get("atrasada") == 1)
+        ee_actualizados_semana = sum(1 for t in team_tareas if t.get("dias_sin_movimiento") is not None and t.get("dias_sin_movimiento") <= 7)
+        ee_completados = sum(1 for t in team_tareas if t.get("completada") == 1)
+        
+        # Calcular fichas incompletas usando la función unificada
+        ee_completados_sin_ficha = 0
+        ee_activos_sin_ficha = 0
+        for t in team_tareas:
+            scf, _ = calcular_completitud_tarea(t)
+            if scf < 100:
+                if t.get("completada") == 1:
+                    ee_completados_sin_ficha += 1
+                else:
+                    ee_activos_sin_ficha += 1
+                    
+        result.append({
+            "gid_equipo": gid_eq,
+            "nombre_equipo": team["nombre_equipo"],
+            "ee_totales": ee_totales,
+            "ee_activos": ee_activos,
+            "ee_en_plazo": ee_en_plazo,
+            "ee_vencidos": ee_vencidos,
+            "ee_actualizados_semana": ee_actualizados_semana,
+            "ee_completados": ee_completados,
+            "ee_completados_sin_ficha": ee_completados_sin_ficha,
+            "ee_activos_sin_ficha": ee_activos_sin_ficha
+        })
+        
+    return sorted(result, key=lambda x: x["nombre_equipo"])
 
 # =====================================================================
 # NUEVAS FUNCIONES DE APOYO PARA KRs E INTERVENCIONES
@@ -454,6 +484,7 @@ def get_kr_dashboard_metrics(team=None):
                SUM(CASE WHEN reprogramada = 0 THEN 1 ELSE 0 END) as sin_reprogramar
         FROM tareas
         WHERE completada = 1 
+        AND (nombre_tarea LIKE 'EE %' OR nombre_tarea LIKE '% EE %' OR etapa LIKE '%Crítica%')
         AND datetime(fecha_completada) >= datetime('now', '-90 days')
         {where_clause}
     """
@@ -462,7 +493,21 @@ def get_kr_dashboard_metrics(team=None):
     concluidas_total = res_concluidas["concluidas_total"] or 0
     sin_reprogramar = res_concluidas["sin_reprogramar"] or 0
     
-    porcentaje_ee_a_tiempo = (sin_reprogramar / concluidas_total * 100) if concluidas_total > 0 else 0.0
+    # Obtener entregables estratégicos activos que ya están vencidos y cuyo vencimiento cae en los últimos 90 días
+    query_vencidos_activos = f"""
+        SELECT COUNT(*) as vencidos_activos_total
+        FROM tareas
+        WHERE completada = 0 AND atrasada = 1
+        AND (nombre_tarea LIKE 'EE %' OR nombre_tarea LIKE '% EE %' OR etapa LIKE '%Crítica%')
+        AND fecha_vencimiento IS NOT NULL AND datetime(fecha_vencimiento) >= datetime('now', '-90 days')
+        {where_clause}
+    """
+    cursor.execute(query_vencidos_activos, params)
+    res_vencidos = cursor.fetchone()
+    vencidos_activos = res_vencidos["vencidos_activos_total"] or 0
+    
+    denominador_total = concluidas_total + vencidos_activos
+    porcentaje_ee_a_tiempo = (sin_reprogramar / denominador_total * 100) if denominador_total > 0 else 0.0
     
     conn.close()
     
@@ -485,5 +530,6 @@ def get_kr_dashboard_metrics(team=None):
         "iniciativa_4_riesgos_intervenidos": tareas_riesgo_intervenidas,
         "kr_principal_ee_concluidos_total": concluidas_total,
         "kr_principal_ee_concluidos_sin_repro": sin_reprogramar,
+        "kr_principal_ee_vencidos_activos": vencidos_activos,
         "kr_principal_porcentaje_a_tiempo": round(porcentaje_ee_a_tiempo, 1)
     }
