@@ -682,6 +682,24 @@
             </select>
         </div>
 
+        <div class="control-group">
+            <label class="control-label">Fecha Inicio</label>
+            <input type="date" class="select-input" id="startDateFilter" style="color-scheme: dark;">
+        </div>
+
+        <div class="control-group">
+            <label class="control-label">Fecha Fin</label>
+            <input type="date" class="select-input" id="endDateFilter" style="color-scheme: dark;">
+        </div>
+
+        <div class="control-group">
+            <label class="control-label">Criterio de Filtro</label>
+            <select class="select-input" id="dateTypeFilter">
+                <option value="delivery">Fecha de Entrega / Completada</option>
+                <option value="creation">Fecha de Creación</option>
+            </select>
+        </div>
+
         <div class="sidebar-footer">
             <button class="btn-sidebar btn-sync" id="syncBtn" onclick="triggerSync()">
                 <span>Sincronizar Asana</span>
@@ -1088,10 +1106,43 @@
         }
 
         const teamFilterElement = document.getElementById('teamFilter');
+        const startDateElement = document.getElementById('startDateFilter');
+        const endDateElement = document.getElementById('endDateFilter');
+        const dateTypeElement = document.getElementById('dateTypeFilter');
 
         teamFilterElement.addEventListener('change', () => {
             loadDashboardData();
         });
+        startDateElement.addEventListener('change', () => {
+            loadDashboardData();
+        });
+        endDateElement.addEventListener('change', () => {
+            loadDashboardData();
+        });
+        dateTypeElement.addEventListener('change', () => {
+            loadDashboardData();
+        });
+
+        function getFilteredUrl(basePath, params = {}) {
+            const queryParams = [];
+            for (const [key, val] of Object.entries(params)) {
+                if (val !== undefined && val !== null && val !== "") {
+                    queryParams.push(`${key}=${encodeURIComponent(val)}`);
+                }
+            }
+            // Append global date filters
+            const startDate = startDateElement.value;
+            const endDate = endDateElement.value;
+            const dateType = dateTypeElement.value;
+            if (startDate) queryParams.push(`start_date=${encodeURIComponent(startDate)}`);
+            if (endDate) queryParams.push(`end_date=${encodeURIComponent(endDate)}`);
+            if (dateType) queryParams.push(`date_type=${encodeURIComponent(dateType)}`);
+            
+            if (queryParams.length > 0) {
+                return `${basePath}?${queryParams.join('&')}`;
+            }
+            return basePath;
+        }
 
         window.addEventListener('DOMContentLoaded', async () => {
             // Cargar los equipos reales en el select
@@ -1125,10 +1176,7 @@
 
         async function loadKrMetricsData() {
             const team = teamFilterElement.value;
-            let url = `/api/kr-metrics`;
-            if (team) {
-                url += `?team=${encodeURIComponent(team)}`;
-            }
+            let url = getFilteredUrl('/api/kr-metrics', { team: team });
             
             try {
                 const res = await fetch(url);
@@ -1294,7 +1342,7 @@
             if (!tbody) return;
 
             try {
-                const res = await fetch('/api/teams/ee-summary');
+                const res = await fetch(getFilteredUrl('/api/teams/ee-summary'));
                 if (!res.ok) throw new Error('Error al obtener el resumen de equipos');
                 const data = await res.json();
 
@@ -1361,10 +1409,7 @@
             loadTeamsSummaryData();
             
             // 1. Cargar Métricas y Salud General de la Operación
-            let queryUrl = `/api/metrics`;
-            if (team) {
-                queryUrl += `?team=${encodeURIComponent(team)}`;
-            }
+            let queryUrl = getFilteredUrl('/api/metrics', { team: team });
 
             try {
                 // Cargar métricas de KR en paralelo
@@ -1393,10 +1438,7 @@
         }
 
         async function loadStrategicData(team) {
-            let strategicUrl = `/api/tasks/strategic`;
-            if (team) {
-                strategicUrl += `?team=${encodeURIComponent(team)}`;
-            }
+            let strategicUrl = getFilteredUrl('/api/tasks/strategic', { team: team });
 
             try {
                 const res = await fetch(strategicUrl);
@@ -1985,18 +2027,17 @@
         async function loadTableData() {
             const team = teamFilterElement.value;
             let url = `/api/tasks/overdue`;
+            const params = { team: team };
+            
             if (currentTab === 'inactivas') {
-                url = `/api/tasks/inactive?days=7`;
+                url = `/api/tasks/inactive`;
+                params.days = 7;
             } else if (currentTab === 'estrategicas') {
                 url = `/api/tasks/strategic`;
             }
 
-            if (team) {
-                url += (url.includes('?') ? '&' : '?') + `team=${encodeURIComponent(team)}`;
-            }
-
             try {
-                const res = await fetch(url);
+                const res = await fetch(getFilteredUrl(url, params));
                 const tasks = await res.json();
                 const tbody = document.getElementById('tableBody');
                 tbody.innerHTML = '';
@@ -2264,7 +2305,13 @@
                 const res = await fetch('/api/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: message, team: team })
+                    body: JSON.stringify({ 
+                        message: message, 
+                        team: team,
+                        start_date: startDateElement.value,
+                        end_date: endDateElement.value,
+                        date_type: dateTypeElement.value
+                    })
                 });
                 const data = await res.json();
 
@@ -2306,10 +2353,7 @@
             }
 
             const team = teamFilterElement.value;
-            let url = `/api/tasks/search?q=${encodeURIComponent(query)}`;
-            if (team) {
-                url += `&team=${encodeURIComponent(team)}`;
-            }
+            let url = getFilteredUrl('/api/tasks/search', { q: query, team: team });
 
             try {
                 const res = await fetch(url);

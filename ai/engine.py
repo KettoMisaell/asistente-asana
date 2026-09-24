@@ -70,7 +70,7 @@ def obtener_ultimos_comentarios(comentarios_texto, n=2):
 # Los docstrings son metadatos que Gemini lee para decidir qué llamar.
 # =====================================================================
 
-def buscar_tareas(termino: str, equipo: str = None) -> list:
+def buscar_tareas(termino: str, equipo: str = None, start_date: str = None, end_date: str = None, date_type: str = "delivery") -> list:
     """
     Busca tareas en la base de datos local que coincidan con un término de búsqueda.
     El término se busca en el nombre de la tarea, su descripción o los comentarios.
@@ -78,79 +78,97 @@ def buscar_tareas(termino: str, equipo: str = None) -> list:
     Args:
         termino: El texto, palabra clave o término a buscar (ej: "IEBEM", "escuelas", "ciberseguridad").
         equipo: Opcional. Filtra para buscar únicamente en este equipo (ej: "Dirección", "Operaciones", "Desarrollo", "Soporte").
+        start_date: Opcional. Fecha de inicio del filtro temporal (YYYY-MM-DD).
+        end_date: Opcional. Fecha de fin del filtro temporal (YYYY-MM-DD).
+        date_type: Opcional. Criterio de fecha: 'creation' o 'delivery' (vencimiento/completada).
         
     Returns:
         Una lista de tareas con toda su información estructurada.
     """
-    print(f"[IA Tool Use] Buscando tareas por término: '{termino}' (Equipo: {equipo})")
-    return search_tasks_by_term(termino, team=equipo)
+    print(f"[IA Tool Use] Buscando tareas por término: '{termino}' (Equipo: {equipo}, Fechas: {start_date} a {end_date}, Tipo: {date_type})")
+    return search_tasks_by_term(termino, team=equipo, start_date=start_date, end_date=end_date, date_type=date_type)
 
-def obtener_tareas_por_asignado(responsable: str, equipo: str = None) -> list:
+def obtener_tareas_por_asignado(responsable: str, equipo: str = None, start_date: str = None, end_date: str = None, date_type: str = "delivery") -> list:
     """
     Obtiene todas las tareas pendientes asignadas a un responsable específico en la base de datos local.
     
     Args:
         responsable: Nombre o correo del responsable asignado (ej: "geobdz@gmail.com", "César", "Misael").
         equipo: Opcional. Filtra para buscar únicamente dentro de este equipo.
+        start_date: Opcional. Fecha de inicio del filtro temporal (YYYY-MM-DD).
+        end_date: Opcional. Fecha de fin del filtro temporal (YYYY-MM-DD).
+        date_type: Opcional. Criterio de fecha: 'creation' o 'delivery' (vencimiento/completada).
         
     Returns:
         Una lista de tareas pendientes asignadas a la persona.
     """
-    print(f"[IA Tool Use] Obteniendo tareas para asignado: '{responsable}' (Equipo: {equipo})")
-    return get_tasks_by_assignee(responsable, team=equipo, only_pending=True)
+    print(f"[IA Tool Use] Obteniendo tareas para asignado: '{responsable}' (Equipo: {equipo}, Fechas: {start_date} a {end_date}, Tipo: {date_type})")
+    return get_tasks_by_assignee(responsable, team=equipo, only_pending=True, start_date=start_date, end_date=end_date, date_type=date_type)
 
-def obtener_tareas_por_proyecto(nombre_proyecto: str) -> list:
+def obtener_tareas_por_proyecto(nombre_proyecto: str, start_date: str = None, end_date: str = None, date_type: str = "delivery") -> list:
     """
     Obtiene todas las tareas pendientes asociadas a un proyecto de origen específico.
     
     Args:
         nombre_proyecto: Nombre del proyecto en Asana (ej: 'Implementación "La Tierra Que Nos Une"').
+        start_date: Opcional. Fecha de inicio del filtro temporal (YYYY-MM-DD).
+        end_date: Opcional. Fecha de fin del filtro temporal (YYYY-MM-DD).
+        date_type: Opcional. Criterio de fecha: 'creation' o 'delivery' (vencimiento/completada).
         
     Returns:
         Una lista de tareas pendientes pertenecientes a ese proyecto.
     """
-    print(f"[IA Tool Use] Obteniendo tareas para el proyecto: '{nombre_proyecto}'")
-    return get_tasks_by_project(nombre_proyecto, only_pending=True)
+    print(f"[IA Tool Use] Obteniendo tareas para el proyecto: '{nombre_proyecto}' (Fechas: {start_date} a {end_date}, Tipo: {date_type})")
+    return get_tasks_by_project(nombre_proyecto, only_pending=True, start_date=start_date, end_date=end_date, date_type=date_type)
 
-def obtener_tareas_vencidas(equipo: str = None) -> list:
+def obtener_tareas_vencidas(equipo: str = None, start_date: str = None, end_date: str = None, date_type: str = "delivery") -> list:
     """
     Obtiene todas las tareas pendientes que ya se encuentran vencidas (atrasadas) en la base de datos local.
     
     Args:
         equipo: Opcional. Filtra las tareas vencidas de un equipo específico.
+        start_date: Opcional. Fecha de inicio del filtro temporal (YYYY-MM-DD).
+        end_date: Opcional. Fecha de fin del filtro temporal (YYYY-MM-DD).
+        date_type: Opcional. Criterio de fecha: 'creation' o 'delivery' (vencimiento/completada).
         
     Returns:
-        Una lista de tareas vencidas and pendientes.
+        Una lista de tareas vencidas y pendientes.
     """
-    print(f"[IA Tool Use] Obteniendo tareas vencidas (Equipo: {equipo})")
-    return get_overdue_tasks(team=equipo)
+    print(f"[IA Tool Use] Obteniendo tareas vencidas (Equipo: {equipo}, Fechas: {start_date} a {end_date}, Tipo: {date_type})")
+    return get_overdue_tasks(team=equipo, start_date=start_date, end_date=end_date, date_type=date_type)
 
-def obtener_tareas_inactivas(dias: int = 7, equipo: str = None) -> list:
+def obtener_tareas_inactivas(dias: int = 7, equipo: str = None, start_date: str = None, end_date: str = None, date_type: str = "delivery") -> list:
     """
     Obtiene las tareas pendientes que no han registrado movimiento (comentarios ni modificaciones) en N días.
     
     Args:
         dias: Número mínimo de días de inactividad (por defecto 7).
         equipo: Opcional. Filtra para buscar únicamente en este equipo.
+        start_date: Opcional. Fecha de inicio del filtro temporal (YYYY-MM-DD).
+        end_date: Opcional. Fecha de fin del filtro temporal (YYYY-MM-DD).
+        date_type: Opcional. Criterio de fecha: 'creation' o 'delivery' (vencimiento/completada).
         
     Returns:
         Una lista de tareas sin movimiento ordenadas de mayor a menor inactividad.
     """
-    print(f"[IA Tool Use] Obteniendo tareas inactivas por >= {dias} días (Equipo: {equipo})")
-    return get_inactive_tasks(days=dias, team=equipo)
+    print(f"[IA Tool Use] Obteniendo tareas inactivas por >= {dias} días (Equipo: {equipo}, Fechas: {start_date} a {end_date}, Tipo: {date_type})")
+    return get_inactive_tasks(days=dias, team=equipo, start_date=start_date, end_date=end_date, date_type=date_type)
 
-def obtener_tareas_estrategicas(equipo: str = None) -> list:
+def obtener_tareas_estrategicas(equipo: str = None, start_date: str = None, end_date: str = None, date_type: str = "delivery") -> list:
     """
     Obtiene las tareas consideradas estratégicas en la base de datos local (comienzan con 'EE' o etapa 'Crítica').
     
     Args:
         equipo: Opcional. Filtra las tareas estratégicas de un equipo específico.
+        start_date: Opcional. Fecha de inicio del filtro temporal (YYYY-MM-DD).
+        end_date: Opcional. Fecha de fin del filtro temporal (YYYY-MM-DD).
+        date_type: Opcional. Criterio de fecha: 'creation' o 'delivery' (vencimiento/completada).
         
     Returns:
         Una lista de tareas estratégicas pendientes.
     """
-    print(f"[IA Tool Use] Obteniendo tareas estratégicas 'EE' (Equipo: {equipo})")
-    return get_strategic_tasks(team=equipo)
+    print(f"[IA Tool Use] Obteniendo tareas estratégicas 'EE' (Equipo: {equipo}, Fechas: {start_date} a {end_date}, Tipo: {date_type})")
+    return get_strategic_tasks(team=equipo, start_date=start_date, end_date=end_date, date_type=date_type)
 
 
 # Lista de herramientas disponibles para Gemini
@@ -168,7 +186,7 @@ HERRAMIENTAS_IA = [
 # CASO DE USO 1: CONSULTA EJECUTIVA EN CHAT (CON TOOL-USE)
 # =====================================================================
 
-def ejecutar_consulta_chat(mensaje_usuario: str, equipo_contexto: str = None) -> str:
+def ejecutar_consulta_chat(mensaje_usuario: str, equipo_contexto: str = None, start_date: str = None, end_date: str = None, date_type: str = "delivery") -> str:
     """
     Procesa una pregunta del usuario en el chat.
     Utiliza Gemini con Function Calling (Tool Use) automático para consultar la base de datos SQLite
@@ -221,6 +239,8 @@ def ejecutar_consulta_chat(mensaje_usuario: str, equipo_contexto: str = None) ->
         f"CONTEXTO TEMPORAL ACTUAL:\n"
         f"La fecha de hoy en el servidor es: {fecha_formateada}.\n"
         f"La hora actual es: {hora_formateada}.\n"
+        f"El usuario tiene activo un Filtro Temporal en el dashboard desde: {start_date or 'No especificado'} hasta: {end_date or 'No especificado'} (basado en: {'Fecha de Creación' if date_type == 'creation' else 'Fecha de Vencimiento / Completada'}).\n"
+        "Cuando llames a funciones de búsqueda o consulta de tareas (buscar_tareas, obtener_tareas_por_asignado, obtener_tareas_por_proyecto, obtener_tareas_vencidas, obtener_tareas_inactivas, obtener_tareas_estrategicas), DEBES pasar estos valores exactos de start_date, end_date y date_type como parámetros para que tus respuestas muestren la información exactamente filtrada tal como la ve el usuario en su dashboard.\n"
         "Usa esta fecha para calcular días de retraso, antigüedad de comentarios, inactividad o proximidad de vencimientos de forma exacta y coherente.\n\n"
         "REGLAS DE OBLIGATORIO CUMPLIMIENTO:\n"
         "1. Para responder cualquier pregunta del usuario sobre tareas, proyectos, responsables o estado, DEBES llamar a tus herramientas. No respondas desde tu conocimiento general.\n"
@@ -260,7 +280,7 @@ def ejecutar_consulta_chat(mensaje_usuario: str, equipo_contexto: str = None) ->
 # CASO DE USO 2: MONITOREO PROACTIVO / REPORTE AUTOMÁTICO SEMANAL
 # =====================================================================
 
-def generar_reporte_semanal(equipo_contexto: str = None) -> str:
+def generar_reporte_semanal(equipo_contexto: str = None, start_date: str = None, end_date: str = None, date_type: str = "delivery") -> str:
     """
     Genera un Reporte Semanal de Monitoreo Proactivo basado únicamente en las tareas estratégicas ('EE').
     Extrae la información determinista de la DB y se la inyecta a Gemini con un formato estructurado.
@@ -273,12 +293,12 @@ def generar_reporte_semanal(equipo_contexto: str = None) -> str:
             f"y generaría alertas, riesgos, recomendaciones y personas clave a contactar."
         )
 
-    # 1. Obtener datos deterministas de tareas estratégicas (EE)
-    print(f"[IA Reporte] Obteniendo tareas estratégicas para el reporte semanal. Equipo: {equipo_contexto}")
-    tareas_ee = get_strategic_tasks(team=equipo_contexto)
+    # 1. Obtener datos deterministas de tareas estratégicas (EE) con filtros temporales
+    print(f"[IA Reporte] Obteniendo tareas estratégicas para el reporte semanal. Equipo: {equipo_contexto}, Fechas: {start_date} a {end_date}, Tipo: {date_type}")
+    tareas_ee = get_strategic_tasks(team=equipo_contexto, start_date=start_date, end_date=end_date, date_type=date_type)
     
     if not tareas_ee:
-        return f"### Reporte Semanal de Monitoreo Proactivo\n\nNo se encontraron tareas estratégicas (**EE** o etapa **Crítica**) pendientes para el equipo *'{equipo_contexto or 'Todos los Equipos'}'* en la sincronización actual."
+        return f"### Reporte Semanal de Monitoreo Proactivo\n\nNo se encontraron tareas estratégicas (**EE** o etapa **Crítica**) pendientes para el equipo *'{equipo_contexto or 'Todos los Equipos'}'* en el período seleccionado en la sincronización actual."
 
     # Formatear la fecha de hoy para el reporte
     dias_semana = {
@@ -328,7 +348,8 @@ def generar_reporte_semanal(equipo_contexto: str = None) -> str:
     prompt = (
         f"Actúa como un Analista Ejecutivo de Riesgos y Gestión de Proyectos de Alto Nivel.\n"
         f"Tu tarea es elaborar el **Reporte Semanal de Monitoreo Proactivo** de las tareas estratégicas para el Titular de la Dependencia.\n\n"
-        f"La fecha actual de generación del reporte es: {fecha_hoy}.\n\n"
+        f"La fecha actual de generación del reporte es: {fecha_hoy}.\n"
+        f"El reporte tiene aplicado un filtro de fecha desde: {start_date or 'No especificado'} hasta: {end_date or 'No especificado'} (Criterio: {'Fecha de Creación' if date_type == 'creation' else 'Fecha de Entrega/Completada'}).\n\n"
         f"A continuación tienes la lista completa de tareas estratégicas activas bajo el alcance del equipo: '{equipo_contexto or 'Todos los Equipos'}':\n"
         f"```\n{texto_tareas}\n```\n\n"
         "INSTRUCCIONES DE REDACCIÓN:\n"

@@ -22,188 +22,315 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
-def search_tasks_by_term(term, team=None):
+def get_temporality_clause_positional(start_date=None, end_date=None, date_type="delivery"):
+    """
+    Retorna una tupla (sql_clause, params_list) para filtrar tareas por un rango de fechas.
+    - date_type == "creation": se filtra por created_at.
+    - date_type == "delivery" (o cualquier otro): se filtra por fecha_completada (concluidas) o fecha_vencimiento (pendientes),
+      con fallbacks apropiados.
+    """
+    clauses = []
+    params = []
+    
+    if not start_date and not end_date:
+        return "", []
+        
+    if date_type == "creation":
+        ref_date_expr = "created_at"
+    else:
+        # delivery/completion:
+        # - completada = 1: fecha_completada, fallback fecha_vencimiento, fallback created_at
+        # - completada = 0: fecha_vencimiento, fallback fecha_inicio, fallback created_at
+        ref_date_expr = """
+            CASE 
+                WHEN completada = 1 THEN COALESCE(date(fecha_completada), date(fecha_vencimiento), date(created_at))
+                ELSE COALESCE(date(fecha_vencimiento), date(fecha_inicio), date(created_at))
+            END
+        """
+        
+    if start_date:
+        clauses.append(f"date({ref_date_expr}) >= date(?)")
+        params.append(start_date)
+        
+    if end_date:
+        clauses.append(f"date({ref_date_expr}) <= date(?)")
+        params.append(end_date)
+        
+    return " AND ".join(clauses), params
+
+def search_tasks_by_term(term, team=None, start_date=None, end_date=None, date_type="delivery"):
     """Busca tareas que contengan el término en el nombre, descripción o comentarios."""
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    query = """
-        SELECT * FROM tareas 
-        WHERE (normalize(nombre_tarea) LIKE ? OR normalize(descripcion) LIKE ? OR normalize(comentarios_texto) LIKE ?)
-    """
+    query_parts = ["(normalize(nombre_tarea) LIKE ? OR normalize(descripcion) LIKE ? OR normalize(comentarios_texto) LIKE ?)"]
     params = [f"%{normalizar_texto(term)}%", f"%{normalizar_texto(term)}%", f"%{normalizar_texto(term)}%"]
     
     if team:
-        query += " AND normalize(equipo) LIKE ?"
+        query_parts.append("normalize(equipo) LIKE ?")
         params.append(f"%{normalizar_texto(team)}%")
         
+    date_clause, date_params = get_temporality_clause_positional(start_date, end_date, date_type)
+    if date_clause:
+        query_parts.append(date_clause)
+        params.extend(date_params)
+        
+    query = "SELECT * FROM tareas WHERE " + " AND ".join(query_parts)
     cursor.execute(query, params)
     rows = cursor.fetchall()
     conn.close()
     return [dict(r) for r in rows]
 
-def get_tasks_by_assignee(assignee_name, team=None, only_pending=True):
+def get_tasks_by_assignee(assignee_name, team=None, only_pending=True, start_date=None, end_date=None, date_type="delivery"):
     """Obtiene tareas asignadas a una persona específica."""
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    query = "SELECT * FROM tareas WHERE normalize(asignado) LIKE ?"
+    query_parts = ["normalize(asignado) LIKE ?"]
     params = [f"%{normalizar_texto(assignee_name)}%"]
     
     if only_pending:
-        query += " AND completada = 0"
+        query_parts.append("completada = 0")
         
     if team:
-        query += " AND normalize(equipo) LIKE ?"
+        query_parts.append("normalize(equipo) LIKE ?")
         params.append(f"%{normalizar_texto(team)}%")
         
+    date_clause, date_params = get_temporality_clause_positional(start_date, end_date, date_type)
+    if date_clause:
+        query_parts.append(date_clause)
+        params.extend(date_params)
+        
+    query = "SELECT * FROM tareas WHERE " + " AND ".join(query_parts)
     cursor.execute(query, params)
     rows = cursor.fetchall()
     conn.close()
     return [dict(r) for r in rows]
 
-def get_tasks_by_project(project_name, only_pending=True):
+def get_tasks_by_project(project_name, only_pending=True, start_date=None, end_date=None, date_type="delivery"):
     """Obtiene tareas pertenecientes a un proyecto específico."""
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    query = "SELECT * FROM tareas WHERE normalize(proyecto_origen) LIKE ?"
+    query_parts = ["normalize(proyecto_origen) LIKE ?"]
     params = [f"%{normalizar_texto(project_name)}%"]
     
     if only_pending:
-        query += " AND completada = 0"
+        query_parts.append("completada = 0")
         
+    date_clause, date_params = get_temporality_clause_positional(start_date, end_date, date_type)
+    if date_clause:
+        query_parts.append(date_clause)
+        params.extend(date_params)
+        
+    query = "SELECT * FROM tareas WHERE " + " AND ".join(query_parts)
     cursor.execute(query, params)
     rows = cursor.fetchall()
     conn.close()
     return [dict(r) for r in rows]
 
-def get_overdue_tasks(team=None):
+def get_overdue_tasks(team=None, start_date=None, end_date=None, date_type="delivery"):
     """Obtiene las tareas vencidas y pendientes."""
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    query = "SELECT * FROM tareas WHERE atrasada = 1 AND completada = 0"
+    query_parts = ["atrasada = 1", "completada = 0"]
     params = []
     
     if team:
-        query += " AND normalize(equipo) LIKE ?"
+        query_parts.append("normalize(equipo) LIKE ?")
         params.append(f"%{normalizar_texto(team)}%")
         
+    date_clause, date_params = get_temporality_clause_positional(start_date, end_date, date_type)
+    if date_clause:
+        query_parts.append(date_clause)
+        params.extend(date_params)
+        
+    query = "SELECT * FROM tareas WHERE " + " AND ".join(query_parts)
     cursor.execute(query, params)
     rows = cursor.fetchall()
     conn.close()
     return [dict(r) for r in rows]
 
-def get_inactive_tasks(days=7, team=None):
+def get_inactive_tasks(days=7, team=None, start_date=None, end_date=None, date_type="delivery"):
     """Obtiene tareas pendientes que no han tenido movimiento en N días."""
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    query = "SELECT * FROM tareas WHERE dias_sin_movimiento >= ? AND completada = 0"
+    query_parts = ["dias_sin_movimiento >= ?", "completada = 0"]
     params = [days]
     
     if team:
-        query += " AND normalize(equipo) LIKE ?"
+        query_parts.append("normalize(equipo) LIKE ?")
         params.append(f"%{normalizar_texto(team)}%")
         
-    query += " ORDER BY dias_sin_movimiento DESC"
-    
+    date_clause, date_params = get_temporality_clause_positional(start_date, end_date, date_type)
+    if date_clause:
+        query_parts.append(date_clause)
+        params.extend(date_params)
+        
+    query = "SELECT * FROM tareas WHERE " + " AND ".join(query_parts) + " ORDER BY dias_sin_movimiento DESC"
     cursor.execute(query, params)
     rows = cursor.fetchall()
     conn.close()
     return [dict(r) for r in rows]
 
-def get_strategic_tasks(team=None):
+def get_strategic_tasks(team=None, start_date=None, end_date=None, date_type="delivery"):
     """Obtiene las tareas estratégicas (que contienen 'EE' o son marcadas como prioritarias) activas o recientemente actualizadas/completadas."""
     conn = get_db_connection()
     cursor = conn.cursor()
     
     # Trae tareas estratégicas que no están completadas, O que están completadas pero con actividad en los últimos 14 días (dias_sin_movimiento <= 14)
-    query = """
-        SELECT * FROM tareas 
-        WHERE (nombre_tarea LIKE 'EE %' OR nombre_tarea LIKE '% EE %' OR etapa LIKE '%Crítica%')
-        AND (completada = 0 OR (completada = 1 AND dias_sin_movimiento <= 14))
-    """
+    query_parts = [
+        "(nombre_tarea LIKE 'EE %' OR nombre_tarea LIKE '% EE %' OR etapa LIKE '%Crítica%')",
+        "(completada = 0 OR (completada = 1 AND dias_sin_movimiento <= 14))"
+    ]
     params = []
     
     if team:
-        query += " AND normalize(equipo) LIKE ?"
+        query_parts.append("normalize(equipo) LIKE ?")
         params.append(f"%{normalizar_texto(team)}%")
         
+    date_clause, date_params = get_temporality_clause_positional(start_date, end_date, date_type)
+    if date_clause:
+        query_parts.append(date_clause)
+        params.extend(date_params)
+        
+    query = "SELECT * FROM tareas WHERE " + " AND ".join(query_parts)
     cursor.execute(query, params)
     rows = cursor.fetchall()
     conn.close()
     return [dict(r) for r in rows]
 
-def get_dashboard_metrics(team=None):
+def get_dashboard_metrics(team=None, start_date=None, end_date=None, date_type="delivery"):
     """Calcula y retorna las métricas agregadas para el dashboard general."""
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    where_clause = ""
+    where_parts = []
     params = []
     if team:
-        where_clause = "WHERE normalize(equipo) LIKE ?"
+        where_parts.append("normalize(equipo) LIKE ?")
         params.append(f"%{normalizar_texto(team)}%")
         
+    date_clause, date_params = get_temporality_clause_positional(start_date, end_date, date_type)
+    if date_clause:
+        where_parts.append(date_clause)
+        params.extend(date_params)
+        
+    where_clause = "WHERE " + " AND ".join(where_parts) if where_parts else ""
+    
     # Total de tareas
     cursor.execute(f"SELECT COUNT(*) FROM tareas {where_clause}", params)
     total = cursor.fetchone()[0]
     
     # Completadas
-    completed_where = f"WHERE completada = 1" if not team else f"WHERE completada = 1 AND normalize(equipo) LIKE ?"
-    cursor.execute(f"SELECT COUNT(*) FROM tareas {completed_where}", params)
+    completed_parts = ["completada = 1"]
+    completed_params = []
+    if team:
+        completed_parts.append("normalize(equipo) LIKE ?")
+        completed_params.append(f"%{normalizar_texto(team)}%")
+    if date_clause:
+        completed_parts.append(date_clause)
+        completed_params.extend(date_params)
+    completed_where = "WHERE " + " AND ".join(completed_parts)
+    cursor.execute(f"SELECT COUNT(*) FROM tareas {completed_where}", completed_params)
     completadas = cursor.fetchone()[0]
     
     # Pendientes
-    pending_where = f"WHERE completada = 0" if not team else f"WHERE completada = 0 AND normalize(equipo) LIKE ?"
-    cursor.execute(f"SELECT COUNT(*) FROM tareas {pending_where}", params)
+    pending_parts = ["completada = 0"]
+    pending_params = []
+    if team:
+        pending_parts.append("normalize(equipo) LIKE ?")
+        pending_params.append(f"%{normalizar_texto(team)}%")
+    if date_clause:
+        pending_parts.append(date_clause)
+        pending_params.extend(date_params)
+    pending_where = "WHERE " + " AND ".join(pending_parts)
+    cursor.execute(f"SELECT COUNT(*) FROM tareas {pending_where}", pending_params)
     pendientes = cursor.fetchone()[0]
     
     # Atrasadas (pendientes y vencidas)
-    overdue_where = f"WHERE atrasada = 1 AND completada = 0" if not team else f"WHERE atrasada = 1 AND completada = 0 AND normalize(equipo) LIKE ?"
-    cursor.execute(f"SELECT COUNT(*) FROM tareas {overdue_where}", params)
+    overdue_parts = ["atrasada = 1", "completada = 0"]
+    overdue_params = []
+    if team:
+        overdue_parts.append("normalize(equipo) LIKE ?")
+        overdue_params.append(f"%{normalizar_texto(team)}%")
+    if date_clause:
+        overdue_parts.append(date_clause)
+        overdue_params.extend(date_params)
+    overdue_where = "WHERE " + " AND ".join(overdue_parts)
+    cursor.execute(f"SELECT COUNT(*) FROM tareas {overdue_where}", overdue_params)
     atrasadas = cursor.fetchone()[0]
     
     # Sin movimiento (> 7 días)
-    inactive_where = f"WHERE dias_sin_movimiento >= 7 AND completada = 0" if not team else f"WHERE dias_sin_movimiento >= 7 AND completada = 0 AND normalize(equipo) LIKE ?"
-    cursor.execute(f"SELECT COUNT(*) FROM tareas {inactive_where}", params)
+    inactive_parts = ["dias_sin_movimiento >= 7", "completada = 0"]
+    inactive_params = []
+    if team:
+        inactive_parts.append("normalize(equipo) LIKE ?")
+        inactive_params.append(f"%{normalizar_texto(team)}%")
+    if date_clause:
+        inactive_parts.append(date_clause)
+        inactive_params.extend(date_params)
+    inactive_where = "WHERE " + " AND ".join(inactive_parts)
+    cursor.execute(f"SELECT COUNT(*) FROM tareas {inactive_where}", inactive_params)
     sin_movimiento = cursor.fetchone()[0]
     
     # Estratégicas (EE)
-    ee_where = (
-        f"WHERE (nombre_tarea LIKE 'EE %' OR nombre_tarea LIKE '% EE %') AND completada = 0"
-        if not team else 
-        f"WHERE (nombre_tarea LIKE 'EE %' OR nombre_tarea LIKE '% EE %') AND completada = 0 AND normalize(equipo) LIKE ?"
-    )
-    cursor.execute(f"SELECT COUNT(*) FROM tareas {ee_where}", params)
+    ee_parts = ["(nombre_tarea LIKE 'EE %' OR nombre_tarea LIKE '% EE %')", "completada = 0"]
+    ee_params = []
+    if team:
+        ee_parts.append("normalize(equipo) LIKE ?")
+        ee_params.append(f"%{normalizar_texto(team)}%")
+    if date_clause:
+        ee_parts.append(date_clause)
+        ee_params.extend(date_params)
+    ee_where = "WHERE " + " AND ".join(ee_parts)
+    cursor.execute(f"SELECT COUNT(*) FROM tareas {ee_where}", ee_params)
     estrategicas = cursor.fetchone()[0]
     
     # Estado por Proyecto (Top 10 proyectos con más tareas pendientes)
+    project_parts = ["completada = 0"]
+    project_params = []
+    if team:
+        project_parts.append("normalize(equipo) LIKE ?")
+        project_params.append(f"%{normalizar_texto(team)}%")
+    if date_clause:
+        project_parts.append(date_clause)
+        project_params.extend(date_params)
+    project_where = "WHERE " + " AND ".join(project_parts)
+    
     project_query = f"""
         SELECT proyecto_origen, COUNT(*) as pendientes_count 
         FROM tareas 
-        {where_clause if team else 'WHERE completada = 0'} 
-        {"AND completada = 0" if team else ""}
+        {project_where}
         GROUP BY proyecto_origen 
         ORDER BY pendientes_count DESC 
         LIMIT 10
     """
-    cursor.execute(project_query, params)
+    cursor.execute(project_query, project_params)
     proyectos = [dict(r) for r in cursor.fetchall()]
     
     # Estado por Responsable (Top 10 responsables con más pendientes)
+    assignee_parts = ["completada = 0", "asignado IS NOT NULL"]
+    assignee_params = []
+    if team:
+        assignee_parts.append("normalize(equipo) LIKE ?")
+        assignee_params.append(f"%{normalizar_texto(team)}%")
+    if date_clause:
+        assignee_parts.append(date_clause)
+        assignee_params.extend(date_params)
+    assignee_where = "WHERE " + " AND ".join(assignee_parts)
+    
     assignee_query = f"""
         SELECT asignado, COUNT(*) as pendientes_count 
         FROM tareas 
-        {where_clause if team else 'WHERE completada = 0 AND asignado IS NOT NULL'} 
-        {"AND completada = 0 AND asignado IS NOT NULL" if team else ""}
+        {assignee_where}
         GROUP BY asignado 
         ORDER BY pendientes_count DESC 
         LIMIT 10
     """
-    cursor.execute(assignee_query, params)
+    cursor.execute(assignee_query, assignee_params)
     responsables = [dict(r) for r in cursor.fetchall()]
 
     conn.close()
@@ -237,7 +364,7 @@ def get_all_teams():
     conn.close()
     return sorted(teams)
 
-def get_teams_ee_summary():
+def get_teams_ee_summary(start_date=None, end_date=None, date_type="delivery"):
     """Calcula y retorna un resumen ejecutivo de entregables estratégicos (EE) por equipo, incluyendo vacíos."""
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -246,11 +373,17 @@ def get_teams_ee_summary():
     cursor.execute("SELECT gid_equipo, nombre_equipo FROM equipos")
     teams_list = [dict(row) for row in cursor.fetchall()]
     
-    # Obtener todas las tareas de entregables estratégicos
-    cursor.execute("""
-        SELECT * FROM tareas 
-        WHERE (nombre_tarea LIKE 'EE %' OR nombre_tarea LIKE '% EE %')
-    """)
+    # Obtener todas las tareas de entregables estratégicos con filtro de fecha
+    query_parts = ["(nombre_tarea LIKE 'EE %' OR nombre_tarea LIKE '% EE %')"]
+    params = []
+    
+    date_clause, date_params = get_temporality_clause_positional(start_date, end_date, date_type)
+    if date_clause:
+        query_parts.append(date_clause)
+        params.extend(date_params)
+        
+    query = "SELECT * FROM tareas WHERE " + " AND ".join(query_parts)
+    cursor.execute(query, params)
     tareas = [dict(row) for row in cursor.fetchall()]
     conn.close()
     
@@ -428,7 +561,7 @@ def get_weekly_update_metrics_by_team():
         "equipos_detalle": sorted(equipos_list, key=lambda x: x["equipo"])
     }
 
-def get_kr_dashboard_metrics(team=None):
+def get_kr_dashboard_metrics(team=None, start_date=None, end_date=None, date_type="delivery"):
     """Calcula y consolida las métricas específicas de los KRs de seguimiento ejecutivo."""
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -440,12 +573,22 @@ def get_kr_dashboard_metrics(team=None):
         params.append(f"%{normalizar_texto(team)}%")
         
     # 1. Obtener todas las tareas estratégicas activas de este equipo/organización
-    query = f"""
-        SELECT * FROM tareas 
-        WHERE (nombre_tarea LIKE 'EE %' OR nombre_tarea LIKE '% EE %' OR etapa LIKE '%Crítica%')
-        AND completada = 0 {where_clause}
-    """
-    cursor.execute(query, params)
+    query_parts = [
+        "(nombre_tarea LIKE 'EE %' OR nombre_tarea LIKE '% EE %' OR etapa LIKE '%Crítica%')",
+        "completada = 0"
+    ]
+    active_params = []
+    if team:
+        query_parts.append("normalize(equipo) LIKE ?")
+        active_params.append(f"%{normalizar_texto(team)}%")
+        
+    date_clause, date_params = get_temporality_clause_positional(start_date, end_date, date_type)
+    if date_clause:
+        query_parts.append(date_clause)
+        active_params.extend(date_params)
+        
+    query = "SELECT * FROM tareas WHERE " + " AND ".join(query_parts)
+    cursor.execute(query, active_params)
     tareas_activas = [dict(r) for r in cursor.fetchall()]
     
     # 2. Obtener todas las intervenciones de la semana actual (últimos 7 días)
@@ -477,32 +620,57 @@ def get_kr_dashboard_metrics(team=None):
             if t["gid_tarea"] in intervenciones_recientes:
                 tareas_riesgo_intervenidas += 1
                 
-    # 4. Calcular métricas concluidas sin reprogramaciones en los últimos 3 meses
-    # (KR principal: de 10% a 50%)
+    # 4. Calcular métricas concluidas sin reprogramaciones en el periodo (o últimos 90 días por defecto)
+    concluidas_parts = [
+        "completada = 1",
+        "(nombre_tarea LIKE 'EE %' OR nombre_tarea LIKE '% EE %' OR etapa LIKE '%Crítica%')"
+    ]
+    concluidas_params = []
+    if team:
+        concluidas_parts.append("normalize(equipo) LIKE ?")
+        concluidas_params.append(f"%{normalizar_texto(team)}%")
+        
+    if date_clause:
+        concluidas_parts.append(date_clause)
+        concluidas_params.extend(date_params)
+    else:
+        concluidas_parts.append("datetime(fecha_completada) >= datetime('now', '-90 days')")
+        
     query_concluidas = f"""
         SELECT COUNT(*) as concluidas_total,
                SUM(CASE WHEN reprogramada = 0 THEN 1 ELSE 0 END) as sin_reprogramar
         FROM tareas
-        WHERE completada = 1 
-        AND (nombre_tarea LIKE 'EE %' OR nombre_tarea LIKE '% EE %' OR etapa LIKE '%Crítica%')
-        AND datetime(fecha_completada) >= datetime('now', '-90 days')
-        {where_clause}
+        WHERE {" AND ".join(concluidas_parts)}
     """
-    cursor.execute(query_concluidas, params)
+    cursor.execute(query_concluidas, concluidas_params)
     res_concluidas = cursor.fetchone()
     concluidas_total = res_concluidas["concluidas_total"] or 0
     sin_reprogramar = res_concluidas["sin_reprogramar"] or 0
     
-    # Obtener entregables estratégicos activos que ya están vencidos y cuyo vencimiento cae en los últimos 90 días
+    # Obtener entregables estratégicos activos que ya están vencidos y cuyo vencimiento cae en el periodo
+    vencidos_parts = [
+        "completada = 0",
+        "atrasada = 1",
+        "(nombre_tarea LIKE 'EE %' OR nombre_tarea LIKE '% EE %' OR etapa LIKE '%Crítica%')",
+        "fecha_vencimiento IS NOT NULL"
+    ]
+    vencidos_params = []
+    if team:
+        vencidos_parts.append("normalize(equipo) LIKE ?")
+        vencidos_params.append(f"%{normalizar_texto(team)}%")
+        
+    if date_clause:
+        vencidos_parts.append(date_clause)
+        vencidos_params.extend(date_params)
+    else:
+        vencidos_parts.append("datetime(fecha_vencimiento) >= datetime('now', '-90 days')")
+        
     query_vencidos_activos = f"""
         SELECT COUNT(*) as vencidos_activos_total
         FROM tareas
-        WHERE completada = 0 AND atrasada = 1
-        AND (nombre_tarea LIKE 'EE %' OR nombre_tarea LIKE '% EE %' OR etapa LIKE '%Crítica%')
-        AND fecha_vencimiento IS NOT NULL AND datetime(fecha_vencimiento) >= datetime('now', '-90 days')
-        {where_clause}
+        WHERE {" AND ".join(vencidos_parts)}
     """
-    cursor.execute(query_vencidos_activos, params)
+    cursor.execute(query_vencidos_activos, vencidos_params)
     res_vencidos = cursor.fetchone()
     vencidos_activos = res_vencidos["vencidos_activos_total"] or 0
     

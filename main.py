@@ -52,32 +52,53 @@ def read_root():
 # --- ENDPOINTS API ---
 
 @app.get("/api/metrics")
-def api_metrics(team: str = Query(None, description="Filtrar métricas por equipo")):
-    return get_dashboard_metrics(team)
+def api_metrics(
+    team: str = Query(None, description="Filtrar métricas por equipo"),
+    start_date: str = Query(None, description="Fecha de inicio (YYYY-MM-DD)"),
+    end_date: str = Query(None, description="Fecha de fin (YYYY-MM-DD)"),
+    date_type: str = Query("delivery", description="Criterio de fecha: 'creation' o 'delivery'")
+):
+    return get_dashboard_metrics(team, start_date, end_date, date_type)
 
 @app.get("/api/tasks/overdue")
-def api_overdue(team: str = Query(None, description="Filtrar tareas por equipo")):
-    return get_overdue_tasks(team)
+def api_overdue(
+    team: str = Query(None, description="Filtrar tareas por equipo"),
+    start_date: str = Query(None, description="Fecha de inicio (YYYY-MM-DD)"),
+    end_date: str = Query(None, description="Fecha de fin (YYYY-MM-DD)"),
+    date_type: str = Query("delivery", description="Criterio de fecha: 'creation' o 'delivery'")
+):
+    return get_overdue_tasks(team, start_date, end_date, date_type)
 
 @app.get("/api/tasks/inactive")
 def api_inactive(
     days: int = Query(7, description="Días de inactividad mínimos"),
-    team: str = Query(None, description="Filtrar por equipo")
+    team: str = Query(None, description="Filtrar por equipo"),
+    start_date: str = Query(None, description="Fecha de inicio (YYYY-MM-DD)"),
+    end_date: str = Query(None, description="Fecha de fin (YYYY-MM-DD)"),
+    date_type: str = Query("delivery", description="Criterio de fecha: 'creation' o 'delivery'")
 ):
-    return get_inactive_tasks(days, team)
+    return get_inactive_tasks(days, team, start_date, end_date, date_type)
 
 @app.get("/api/tasks/strategic")
-def api_strategic(team: str = Query(None, description="Filtrar por equipo")):
-    return get_strategic_tasks(team)
+def api_strategic(
+    team: str = Query(None, description="Filtrar por equipo"),
+    start_date: str = Query(None, description="Fecha de inicio (YYYY-MM-DD)"),
+    end_date: str = Query(None, description="Fecha de fin (YYYY-MM-DD)"),
+    date_type: str = Query("delivery", description="Criterio de fecha: 'creation' o 'delivery'")
+):
+    return get_strategic_tasks(team, start_date, end_date, date_type)
 
 @app.get("/api/tasks/search")
 def api_search(
     q: str = Query(..., description="Término de búsqueda"),
-    team: str = Query(None, description="Filtrar por equipo")
+    team: str = Query(None, description="Filtrar por equipo"),
+    start_date: str = Query(None, description="Fecha de inicio (YYYY-MM-DD)"),
+    end_date: str = Query(None, description="Fecha de fin (YYYY-MM-DD)"),
+    date_type: str = Query("delivery", description="Criterio de fecha: 'creation' o 'delivery'")
 ):
     if len(q.strip()) < 3:
         return []
-    return search_tasks_by_term(q, team)
+    return search_tasks_by_term(q, team, start_date, end_date, date_type)
 
 @app.post("/api/sync")
 def api_sync():
@@ -95,17 +116,25 @@ def api_chat(payload: dict):
     """
     mensaje_usuario = payload.get("message", "").strip()
     team = payload.get("team")
+    start_date = payload.get("start_date")
+    end_date = payload.get("end_date")
+    date_type = payload.get("date_type", "delivery")
     
     if not mensaje_usuario:
         return {"response": "Por favor escribe una consulta para poder ayudarte."}
         
-    respuesta = ejecutar_consulta_chat(mensaje_usuario, team)
+    respuesta = ejecutar_consulta_chat(mensaje_usuario, team, start_date, end_date, date_type)
     return {"response": respuesta}
 
 @app.get("/api/report")
-def api_report(team: str = Query(None, description="Filtrar reporte estratégico por equipo")):
+def api_report(
+    team: str = Query(None, description="Filtrar reporte estratégico por equipo"),
+    start_date: str = Query(None, description="Fecha de inicio (YYYY-MM-DD)"),
+    end_date: str = Query(None, description="Fecha de fin (YYYY-MM-DD)"),
+    date_type: str = Query("delivery", description="Criterio de fecha: 'creation' o 'delivery'")
+):
     """Genera el reporte ejecutivo semanal proactivo de tareas EE."""
-    reporte = generar_reporte_semanal(team)
+    reporte = generar_reporte_semanal(team, start_date, end_date, date_type)
     return {"reporte": reporte}
 
 @app.get("/api/tasks/{gid}/insight")
@@ -123,14 +152,23 @@ def api_teams():
     return get_all_teams()
 
 @app.get("/api/teams/ee-summary")
-def api_teams_ee_summary():
+def api_teams_ee_summary(
+    start_date: str = Query(None, description="Fecha de inicio (YYYY-MM-DD)"),
+    end_date: str = Query(None, description="Fecha de fin (YYYY-MM-DD)"),
+    date_type: str = Query("delivery", description="Criterio de fecha: 'creation' o 'delivery'")
+):
     """Retorna un resumen ejecutivo de entregables estratégicos (EE) por equipo, incluyendo vacíos."""
-    return get_teams_ee_summary()
+    return get_teams_ee_summary(start_date, end_date, date_type)
 
 @app.get("/api/kr-metrics")
-def api_kr_metrics(team: str = Query(None, description="Filtrar métricas de KR por equipo")):
+def api_kr_metrics(
+    team: str = Query(None, description="Filtrar métricas de KR por equipo"),
+    start_date: str = Query(None, description="Fecha de inicio (YYYY-MM-DD)"),
+    end_date: str = Query(None, description="Fecha de fin (YYYY-MM-DD)"),
+    date_type: str = Query("delivery", description="Criterio de fecha: 'creation' o 'delivery'")
+):
     """Retorna las métricas ejecutivas asociadas a los KRs y metas de seguimiento."""
-    return get_kr_dashboard_metrics(team)
+    return get_kr_dashboard_metrics(team, start_date, end_date, date_type)
 
 @app.post("/api/tasks/{gid}/intervene")
 def api_intervene(gid: str, payload: dict):

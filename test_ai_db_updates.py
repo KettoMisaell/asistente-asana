@@ -97,5 +97,24 @@ class TestAIDBUpdates(unittest.TestCase):
         self.assertIsNotNone(insight)
         self.assertTrue("EE Compilar reportes" in insight or "DIAGNÓSTICO" in insight)
 
+    def test_get_temporality_clause_positional(self):
+        from db.queries import get_temporality_clause_positional
+        # Caso 1: Sin fechas
+        clause, params = get_temporality_clause_positional()
+        self.assertEqual(clause, "")
+        self.assertEqual(params, [])
+        
+        # Caso 2: Solo fecha de inicio, tipo entrega
+        clause, params = get_temporality_clause_positional(start_date="2026-07-20", date_type="delivery")
+        self.assertIn("date(", clause)
+        self.assertIn(">= date(?)", clause)
+        self.assertEqual(params, ["2026-07-20"])
+        
+        # Caso 3: Ambos rangos de fechas, tipo creación
+        clause, params = get_temporality_clause_positional(start_date="2026-07-20", end_date="2026-08-20", date_type="creation")
+        self.assertIn("date(created_at) >= date(?)", clause)
+        self.assertIn("date(created_at) <= date(?)", clause)
+        self.assertEqual(params, ["2026-07-20", "2026-08-20"])
+
 if __name__ == "__main__":
     unittest.main()
